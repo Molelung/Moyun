@@ -9,21 +9,6 @@ class EntryImageDao {
     return result.map((json) => EntryImage.fromJson(json)).toList();
   }
 
-  static Future<List<EntryImage>> getForEntry(int entryId) async {
-    List<EntryImage> entryImages = List.empty(growable: true);
-
-    final maps = await AppDatabase.instance.database!.query(imagesTable,
-        where: '${EntryImageFields.entryId} = ?',
-        whereArgs: [entryId],
-        orderBy: '${EntryImageFields.imgRank} DESC');
-
-    for (final map in maps) {
-      entryImages.add(EntryImage.fromJson(map));
-    }
-
-    return entryImages;
-  }
-
   static Future<EntryImage> add(EntryImage entryImage) async {
     final id = await AppDatabase.instance.database!
         .insert(imagesTable, entryImage.toJson());

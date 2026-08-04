@@ -10,7 +10,7 @@ class ThemeModeProvider with ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.light;
   ThemeMode get themeMode => _themeMode;
 
-  Color _accentColor = const Color(0xff62A0EA);
+  Color _accentColor = const Color(0xFF5A4D41);
   Color get accentColor => _accentColor;
   bool get usingSystemColor =>
       ConfigProvider.instance.get(ConfigKey.followSystemColor);
@@ -51,9 +51,5 @@ class ThemeModeProvider with ChangeNotifier {
       _themeMode = ThemeMode.light;
     }
     notifyListeners();
-  }
-
-  ThemeMode get currentThemeMode {
-    return _themeMode;
   }
 }

@@ -75,7 +75,7 @@ class ConfigProvider with ChangeNotifier {
     ConfigKey.useMarkdownToolbar: true,
     ConfigKey.cjkFont: 'sotyr',
     ConfigKey.followSystemColor: true,
-    ConfigKey.accentColor: 0xff62A0EA,
+    ConfigKey.accentColor: 0xFF5A4D41,
     ConfigKey.dailyReminders: false,
     ConfigKey.setReminderTime: false,
     ConfigKey.scheduledReminderHour: 12,

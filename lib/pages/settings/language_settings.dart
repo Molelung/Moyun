@@ -22,11 +22,6 @@ class LanguageSettings extends StatefulWidget {
 
 class _LanguageSettingsState extends State<LanguageSettings> {
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   Widget build(BuildContext context) {
     ConfigProvider configProvider = Provider.of<ConfigProvider>(context);
     return Stack(

@@ -4,13 +4,6 @@ import 'package:sqflite/sqflite.dart';
 import 'package:daily_you/utils/keyword_cloud.dart';
 
 class EntryDao {
-  static Future<List<Entry>> getAll() async {
-    final result = await AppDatabase.instance.database!
-        .query(entriesTable, orderBy: '${EntryFields.timeCreate} DESC');
-
-    return result.map((json) => Entry.fromJson(json)).toList();
-  }
-
   static Future<List<Entry>> getPage(int limit, int offset) async {
     final result = await AppDatabase.instance.database!.query(
       entriesTable,
@@ -31,6 +24,7 @@ class EntryDao {
     return result.map((json) => Entry.fromJson(json)).toList();
   }
 
+  /// 全量文本（统计页惰性计算字数时使用）
   static Future<List<String>> getAllTexts() async {
     final result = await AppDatabase.instance.database!.query(
       entriesTable,

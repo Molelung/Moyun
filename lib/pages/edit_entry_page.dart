@@ -369,9 +369,9 @@ class _AddEditEntryPageState extends State<AddEditEntryPage>
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.3),
+                  color: Colors.white.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.5),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
                 ),
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
@@ -391,7 +391,7 @@ class _AddEditEntryPageState extends State<AddEditEntryPage>
                       decoration: InputDecoration(
                         hintText: l10n?.titleHint ?? '标题...',
                         hintStyle: theme.textTheme.headlineMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.5),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                           fontWeight: FontWeight.bold,
                         ),
                         border: InputBorder.none,

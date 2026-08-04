@@ -146,6 +146,13 @@ void main() async {
 
   final themeProvider = ThemeModeProvider();
 
+  // 主题在首帧前初始化，避免深色/amoled 用户看到亮色闪烁
+  try {
+    await themeProvider.initializeThemeFromConfig();
+  } catch (_) {
+    // 平台通道异常不阻塞启动
+  }
+
   runApp(MultiProvider(providers: [
     ChangeNotifierProvider<ThemeModeProvider>(
       create: (_) => themeProvider,
@@ -170,7 +177,6 @@ void main() async {
 
 Future<void> _initializeInBackground(ThemeModeProvider themeProvider) async {
   try {
-    await themeProvider.initializeThemeFromConfig();
     await DeviceInfoService().init();
 
     // Notification only supported on android
@@ -178,11 +184,24 @@ Future<void> _initializeInBackground(ThemeModeProvider themeProvider) async {
       await FlutterDisplayMode.setHighRefreshRate();
       await NotificationManager.instance.init();
       await AndroidAlarmManager.initialize();
+      // 启动时按配置恢复提醒闹钟（系统强停/清理后台闹钟后提醒会丢失）
+      await _restoreAlarmsFromConfig();
     }
   } catch (error, stackTrace) {
     // Initialization failures must never block the app from running.
     // ignore: avoid_print
     debugPrint('Background initialization failed: $error\n$stackTrace');
+  }
+}
+
+/// 按配置恢复提醒闹钟（dailyReminders / onThisDayNotifications 开启时）
+Future<void> _restoreAlarmsFromConfig() async {
+  final config = ConfigProvider.instance;
+  if (config.get(ConfigKey.dailyReminders) == true) {
+    await setAlarm(firstSet: true);
+  }
+  if (config.get(ConfigKey.onThisDayNotifications) == true) {
+    await setOnThisDayAlarm(firstSet: true);
   }
 }
 
@@ -344,7 +363,9 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
               },
             ),
             colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF5A4D41),
+                seedColor: themeModeProvider.usingSystemColor
+                    ? const Color(0xFF5A4D41)
+                    : themeModeProvider.accentColor,
                 brightness: Brightness.light,
                 surface: const Color(0xFFF7F4ED),
                 onSurface: const Color(0xFF2C2A29)));
@@ -396,7 +417,9 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
             },
           ),
           colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF5A4D41),
+              seedColor: themeModeProvider.usingSystemColor
+                  ? const Color(0xFF5A4D41)
+                  : themeModeProvider.accentColor,
               brightness: Brightness.dark,
               surface: const Color(0xFF1E1E1E),
               onSurface: const Color(0xFFD4D4D4)),

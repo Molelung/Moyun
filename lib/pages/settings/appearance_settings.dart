@@ -1,5 +1,4 @@
 import 'package:daily_you/config_provider.dart';
-import 'package:daily_you/time_manager.dart';
 import 'package:daily_you/app_text.dart';
 import 'package:daily_you/widgets/color_picker_dialog.dart';
 import 'package:daily_you/widgets/settings_dropdown.dart';
@@ -20,11 +19,6 @@ class AppearanceSettings extends StatefulWidget {
 }
 
 class _AppearanceSettingsPageState extends State<AppearanceSettings> {
-  @override
-  void initState() {
-    super.initState();
-  }
-
   Future<void> _showAccentColorPopup(ThemeModeProvider themeProvider) async {
     final initialColor =
         Color(ConfigProvider.instance.get(ConfigKey.accentColor));
@@ -36,29 +30,6 @@ class _AppearanceSettingsPageState extends State<AppearanceSettings> {
       themeProvider.accentColor = result!.color!;
       themeProvider.updateAccentColor();
     }
-  }
-
-
-
-  List<DropdownMenuItem<String>> _buildFirstDayOfWeekDropdownItems(
-      BuildContext context) {
-    final dayLabels = TimeManager.daysOfWeekLabels(context);
-    List<DropdownMenuItem<String>> dropdownItems = List.empty(growable: true);
-    dropdownItems.add(DropdownMenuItem<String>(
-      value: "system",
-      child: Text(AppLocalizations.of(context)!.themeSystem),
-    ));
-
-    var dropdownDays = List.generate(7, (index) {
-      return DropdownMenuItem<String>(
-        value: TimeManager.dayOfWeekIndexMapping[index],
-        child: Text(
-          dayLabels[index],
-        ),
-      );
-    });
-    dropdownItems.addAll(dropdownDays);
-    return dropdownItems;
   }
 
   @override
@@ -108,20 +79,18 @@ class _AppearanceSettingsPageState extends State<AppearanceSettings> {
                     child: Text(AppLocalizations.of(context)!.themeAmoled)),
               ],
               onChanged: (String? newValue) {
-                ThemeMode themeMode = ThemeMode.system;
+                // 与启动解析一致：'system'/'light' 都是恒亮（宣纸设计），
+                // 避免选择时与重启后行为不一致
+                ThemeMode themeMode;
                 switch (newValue) {
-                  case "system":
-                    themeMode = ThemeMode.system;
-                    break;
-                  case "light":
-                    themeMode = ThemeMode.light;
-                    break;
                   case "dark":
                   case "amoled":
                     themeMode = ThemeMode.dark;
                     break;
+                  case "system":
+                  case "light":
                   default:
-                    themeMode = ThemeMode.system;
+                    themeMode = ThemeMode.light;
                     break;
                 }
                 themeProvider.themeMode = themeMode;
@@ -159,17 +128,6 @@ class _AppearanceSettingsPageState extends State<AppearanceSettings> {
                 ],
                 onChanged: (String? newValue) async {
                   await configProvider.set(ConfigKey.cjkFont, newValue);
-                }),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: SettingsDropdown<String>(
-                title: AppLocalizations.of(context)!.settingsFirstDayOfWeek,
-                value: configProvider.get(ConfigKey.startingDayOfWeek),
-                options: _buildFirstDayOfWeekDropdownItems(context),
-                onChanged: (String? newValue) async {
-                  await configProvider.set(
-                      ConfigKey.startingDayOfWeek, newValue);
                 }),
           ),
           Padding(

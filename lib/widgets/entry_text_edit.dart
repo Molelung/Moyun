@@ -26,7 +26,6 @@ class EntryTextEditor extends StatefulWidget {
 
 class _EntryTextEditorState extends State<EntryTextEditor> {
   final ScrollController _scrollController = ScrollController();
-  bool isLoading = true;
 
   @override
   void initState() {
@@ -36,6 +35,7 @@ class _EntryTextEditorState extends State<EntryTextEditor> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     super.dispose();
   }
 

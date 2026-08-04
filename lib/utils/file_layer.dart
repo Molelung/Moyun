@@ -90,57 +90,6 @@ class FileLayer {
     }
   }
 
-  static Future<void> renameFile(String uri, String newName,
-      {String? oldName, useExternalPath = true}) async {
-    if (Platform.isAndroid && useExternalPath) {
-      await SafUtil().rename(uri, false, newName);
-    } else {
-      await File(join(uri, oldName)).rename(newName);
-    }
-  }
-
-  static Future<DateTime?> getFileModifiedTime(String uri,
-      {String? name, useExternalPath = true}) async {
-    if (Platform.isAndroid && useExternalPath) {
-      // Android
-      if (name != null) {
-        // Find file in directory
-        var targetFile =
-            await saf.child(Uri.parse(uri), name, requiresWriteAccess: true);
-        return targetFile?.lastModified;
-      } else {
-        // Get the file directly
-        var targetFile = await saf.fromTreeUri(Uri.parse(uri));
-        return targetFile?.lastModified;
-      }
-    } else {
-      // Desktop
-      var targetFile = File(join(uri, name));
-      return await targetFile.exists() ? await targetFile.lastModified() : null;
-    }
-  }
-
-  static Future<int?> getFileSize(String uri,
-      {String? name, useExternalPath = true}) async {
-    if (Platform.isAndroid && useExternalPath) {
-      // Android
-      if (name != null) {
-        // Find file in directory
-        var targetFile =
-            await saf.child(Uri.parse(uri), name, requiresWriteAccess: true);
-        return targetFile?.size;
-      } else {
-        // Get the file directly
-        var targetFile = await saf.fromTreeUri(Uri.parse(uri));
-        return targetFile?.size;
-      }
-    } else {
-      // Desktop
-      var targetFile = File(join(uri, name));
-      return await targetFile.exists() ? await targetFile.length() : null;
-    }
-  }
-
   static Future<bool> writeFileBytes(String destination, Uint8List bytes,
       {String? name, useExternalPath = true}) async {
     if (Platform.isAndroid && useExternalPath) {

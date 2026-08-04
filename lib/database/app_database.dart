@@ -444,9 +444,14 @@ class AppDatabase {
           await FileLayer.getFileBytes(_internalPath!, useExternalPath: false);
       if (bytes == null) return false;
 
+      // 与 _writeExternalBackup 一致：开启加密时必须加密后再导出，
+      // 否则恢复时 _decryptBytes 对明文解密失败，备份永远无法恢复。
+      final encryptedBytes = _encryptBytes(bytes);
+      if (encryptedBytes == null) return false;
+
       // Export internal DB
-      var externalDbPath =
-          await FileLayer.createFile(getExternalPath(), "daily_you.db", bytes);
+      var externalDbPath = await FileLayer.createFile(
+          getExternalPath(), "daily_you.db", encryptedBytes);
       return externalDbPath != null;
     }
 
@@ -576,10 +581,6 @@ CREATE TABLE IF NOT EXISTS keyword_frequencies (
 
   void _onUpgrade(Database db, int oldVersion, int newVersion) async {
     _database = db;
-    // In this case, oldVersion is 1, newVersion is 2
-    if (oldVersion == 1) {
-
-    }
     if (oldVersion <= 2) {
       await db.execute('''
 CREATE TABLE $imagesTable (

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:provider/provider.dart';
 import 'package:daily_you/database/entry_dao.dart';
-import 'package:daily_you/providers/entries_provider.dart';
 import 'package:daily_you/widgets/glass_action_button.dart';
 import 'package:daily_you/widgets/paper_texture.dart';
 import 'package:daily_you/widgets/word_cloud.dart';
 import 'package:daily_you/app_text.dart';
+import 'package:word_count/word_count.dart';
 
 class StatsPage extends StatefulWidget {
   const StatsPage({super.key});
@@ -32,10 +31,17 @@ class _StatsPageState extends State<StatsPage> {
       final totalEntries = await EntryDao.getCount();
       final entryDays = await EntryDao.getUniqueDaysCount();
       final keywords = await EntryDao.getTopKeywords(totalEntries, limit: 40);
+      // 字数保持与历史一致的 wordsCount 口径，只在统计页惰性计算
+      var totalWords = 0;
+      final texts = await EntryDao.getAllTexts();
+      for (final text in texts) {
+        totalWords += wordsCount(text);
+      }
       return {
         'totalEntries': totalEntries,
         'entryDays': entryDays,
         'keywords': keywords,
+        'totalWords': totalWords,
       };
     } catch (_) {
       // 查询失败（如词频表缺失）时兜底展示空统计，绝不卡在加载态
@@ -43,6 +49,7 @@ class _StatsPageState extends State<StatsPage> {
         'totalEntries': 0,
         'entryDays': 0,
         'keywords': <String, int>{},
+        'totalWords': 0,
       };
     }
   }
@@ -77,7 +84,6 @@ class _StatsPageState extends State<StatsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final totalWords = Provider.of<EntriesProvider>(context).wordCount;
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -96,6 +102,7 @@ class _StatsPageState extends State<StatsPage> {
           final totalEntries = stats['totalEntries'] as int;
           final entryDays = stats['entryDays'] as int;
           final keywords = stats['keywords'] as Map<String, int>;
+          final totalWords = stats['totalWords'] as int;
           final avgWords = entryDays > 0 ? (totalWords / entryDays).round() : 0;
 
           return GestureDetector(

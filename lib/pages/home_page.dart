@@ -127,9 +127,15 @@ class _HomePageState extends State<HomePage> {
               ),
               TextButton(
                 onPressed: () async {
-                  await configProvider.set(ConfigKey.hasPromptedAutoBackup, true);
                   if (context.mounted) Navigator.of(context).pop();
-                  await AppDatabase.instance.selectExternalLocation((status) {});
+                  // 目录选择/备份配置成功后才记录已提示，
+                  // 失败时保留标志，下次启动仍会引导
+                  final ok = await AppDatabase.instance
+                      .selectExternalLocation((status) {});
+                  if (ok) {
+                    await configProvider
+                        .set(ConfigKey.hasPromptedAutoBackup, true);
+                  }
                 },
                 child: const Text(AppText.backupChoose),
               ),
@@ -307,7 +313,7 @@ class _HomePageState extends State<HomePage> {
             borderRadius: BorderRadius.circular(24),
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-          child: Container(
+              child: Container(
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.3),
@@ -388,9 +394,9 @@ class _HomePageState extends State<HomePage> {
                   ),
               ],
             ),
+            ),
           ),
         ),
-      ),
       ),
     ),
     );
@@ -509,7 +515,7 @@ class _HomePageState extends State<HomePage> {
                       height: cardHeight,
                       child: Center(
                         child: SpinKitPouringHourGlassRefined(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                           size: 60.0,
                         ),
                       ),

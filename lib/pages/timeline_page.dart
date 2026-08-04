@@ -228,9 +228,9 @@ class _TimelinePageState extends State<TimelinePage> {
                     padding:
                         const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.35),
+                      color: Colors.white.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.white.withOpacity(0.6)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -250,7 +250,7 @@ class _TimelinePageState extends State<TimelinePage> {
                                 DateTime.now().subtract(const Duration(days: 365)))),
                         IconButton(
                           icon: const Icon(Icons.calendar_month_rounded, size: 20),
-                          color: theme.colorScheme.onSurface.withOpacity(0.8),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                           onPressed: _pickDate,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
@@ -274,7 +274,7 @@ class _TimelinePageState extends State<TimelinePage> {
         text,
         style: TextStyle(
           fontSize: 14,
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
         ),
       ),
     );
@@ -307,7 +307,7 @@ class _TimelinePageState extends State<TimelinePage> {
                   Text(
                     "${group.date.year}",
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.5),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
               ],
@@ -325,7 +325,7 @@ class _TimelinePageState extends State<TimelinePage> {
                 // Line
                 Container(
                   width: 2,
-                  color: theme.colorScheme.onSurface.withOpacity(0.2),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
                 ),
                 // Dot
                 Positioned(
@@ -381,9 +381,9 @@ class _TimelinePageState extends State<TimelinePage> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.3),
+          color: Colors.white.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.3), width: 0.5),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 0.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,7 +391,7 @@ class _TimelinePageState extends State<TimelinePage> {
             Text(
               "${entry.timeCreate.hour.toString().padLeft(2, '0')}:${entry.timeCreate.minute.toString().padLeft(2, '0')}",
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.5)),
+                  ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
             ),
             const SizedBox(height: 10),
             Text(
@@ -407,12 +407,12 @@ class _TimelinePageState extends State<TimelinePage> {
                 children: [
                   Icon(Icons.image_outlined,
                       size: 16,
-                      color: theme.colorScheme.onSurface.withOpacity(0.5)),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                   const SizedBox(width: 4),
                   Text(
                     "${images.length}",
                     style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.5)),
+                        ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                   ),
                 ],
               )

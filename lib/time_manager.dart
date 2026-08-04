@@ -16,9 +16,6 @@ class TimeManager {
       dayOne.month == dayTwo.month &&
       dayOne.day == dayTwo.day;
 
-  static bool isSameMonth(DateTime dayOne, DateTime dayTwo) =>
-      dayOne.year == dayTwo.year && dayOne.month == dayTwo.month;
-
   static DateTime startOfDay(DateTime dateTime) {
     return dateTime.copyWith(
         hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0);
@@ -71,30 +68,6 @@ class TimeManager {
       return DateFormat.Hm(locale);
     }
     return DateFormat.jm(locale);
-  }
-
-  static final Map<int, String> dayOfWeekIndexMapping = {
-    0: 'monday',
-    1: 'tuesday',
-    2: 'wednesday',
-    3: 'thursday',
-    4: 'friday',
-    5: 'saturday',
-    6: 'sunday',
-  };
-
-  static List<String> daysOfWeekLabels(BuildContext context) {
-    final now = DateTime.now();
-    final formatter = DateFormat.E(TimeManager.currentLocale(context));
-
-    List<String> days = List.generate(7, (index) {
-      final day = now
-          .subtract(Duration(days: now.weekday - 1))
-          .add(Duration(days: index));
-      return formatter.format(day); // Gets localized short name
-    });
-
-    return days;
   }
 
   static String currentLocale(BuildContext context) {
@@ -179,20 +152,9 @@ class TimeManager {
     return locale.startsWith('fa') ? f.mN : f.mNFn;
   }
 
-  static String formatDate(DateTime date, BuildContext context) =>
-      _formatDate(date, currentLocale(context),
-          isJalali: isJalaliCalendar(context));
-
   static String formatDateWithWeekday(DateTime date, BuildContext context) =>
       _formatDateWithWeekday(date, currentLocale(context),
           isJalali: isJalaliCalendar(context));
-
-  static String _formatDate(DateTime date, String locale,
-      {bool isJalali = false}) {
-    if (!isJalali) return DateFormat.yMMMd(locale).format(date);
-    final j = Jalali.fromDateTime(date);
-    return '${j.formatter.d} ${jalaliMonthName(j.month, locale)} ${j.formatter.yyyy}';
-  }
 
   static String _formatDateWithWeekday(DateTime date, String locale,
       {bool isJalali = false}) {

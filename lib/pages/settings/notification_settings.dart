@@ -201,11 +201,6 @@ class NotificationSettings extends StatefulWidget {
 
 class _NotificationSettingsState extends State<NotificationSettings> {
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final configProvider = Provider.of<ConfigProvider>(context);
     return Stack(

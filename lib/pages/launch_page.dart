@@ -31,11 +31,6 @@ class _LaunchPageState extends State<LaunchPage> {
   _LaunchErrorType _errorType = _LaunchErrorType.externalAccess;
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 

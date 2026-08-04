@@ -31,11 +31,6 @@ class SecuritySettings extends StatefulWidget {
 }
 
 class SecuritySettingsPageState extends State<SecuritySettings> {
-  @override
-  void initState() {
-    super.initState();
-  }
-
   Future<bool> requestStoragePermission() async {
     DeviceInfoPlugin deviceInfoPlugin = DeviceInfoPlugin();
     AndroidDeviceInfo androidInfo = await deviceInfoPlugin.androidInfo;

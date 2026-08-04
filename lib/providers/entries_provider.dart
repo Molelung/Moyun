@@ -3,7 +3,6 @@ import 'package:daily_you/database/entry_dao.dart';
 import 'package:daily_you/models/entry.dart';
 import 'package:daily_you/providers/entry_images_provider.dart';
 import 'package:flutter/foundation.dart';
-import 'package:word_count/word_count.dart';
 
 class EntriesProvider with ChangeNotifier {
   static final EntriesProvider instance = EntriesProvider._init();
@@ -12,11 +11,6 @@ class EntriesProvider with ChangeNotifier {
 
   List<Entry> entries = List.empty(growable: true);
   Map<DateTime, List<Entry>> _entriesByDay = {};
-
-  Entry? fallbackEntry;
-
-  int _wordCount = 0;
-  int get wordCount => _wordCount;
 
   bool isLoading = false;
   bool isAllLoaded = false;
@@ -31,11 +25,9 @@ class EntriesProvider with ChangeNotifier {
     _offset = 0;
     entries = await EntryDao.getPage(_limit, _offset);
     isAllLoaded = entries.length < _limit;
-    
-    await _calculateWordCount();
-    await _calculateFallbackEntry();
+
     _calculateEntriesByDay();
-    
+
     isLoading = false;
     notifyListeners();
   }
@@ -59,32 +51,6 @@ class EntriesProvider with ChangeNotifier {
 
     isLoading = false;
     notifyListeners();
-  }
-
-  Future<void> _calculateFallbackEntry() async {
-    final now = DateTime.now();
-    final idsAndDates = await EntryDao.getIdsAndDates();
-    if (idsAndDates.isEmpty) return;
-    
-    int? matchId;
-    for (int i = 1; i <= 30; i++) {
-      final targetYear = now.year - i;
-      for (final row in idsAndDates) {
-        final dateStr = row[EntryFields.timeCreate] as String;
-        final date = DateTime.tryParse(dateStr);
-        if (date != null && date.year == targetYear && date.month == now.month && date.day == now.day) {
-          matchId = row[EntryFields.id] as int;
-          break;
-        }
-      }
-      if (matchId != null) break;
-    }
-    
-    if (matchId != null) {
-      fallbackEntry = await EntryDao.get(matchId);
-    } else {
-      fallbackEntry = await EntryDao.getRandomEntry();
-    }
   }
 
   Future<void> jumpToDate(DateTime targetDate) async {
@@ -136,7 +102,6 @@ class EntriesProvider with ChangeNotifier {
     if (!skipUpdate) {
       // Reverse chronological order such that the most recent day is first
       entries.sort((a, b) => compareByTime(b.timeCreate, a.timeCreate));
-      await _calculateWordCount();
       _calculateEntriesByDay();
       notifyListeners();
     }
@@ -153,7 +118,6 @@ class EntriesProvider with ChangeNotifier {
     if (!skipUpdate) {
       // Reverse chronological order such that the most recent day is first
       entries.sort((a, b) => compareByTime(b.timeCreate, a.timeCreate));
-      await _calculateWordCount();
       _calculateEntriesByDay();
       notifyListeners();
     }
@@ -164,7 +128,6 @@ class EntriesProvider with ChangeNotifier {
     entries.removeWhere((x) => x.id == entry.id);
 
     if (!skipUpdate) {
-      await _calculateWordCount();
       _calculateEntriesByDay();
       notifyListeners();
     }
@@ -211,14 +174,6 @@ class EntriesProvider with ChangeNotifier {
 
   bool hasEntryAtTimestamp(DateTime timestamp) {
     return entries.any((e) => e.timeCreate == timestamp);
-  }
-
-  Future<void> _calculateWordCount() async {
-    _wordCount = 0;
-    final texts = await EntryDao.getAllTexts();
-    for (var text in texts) {
-      _wordCount += wordsCount(text);
-    }
   }
 
   void _calculateEntriesByDay() {

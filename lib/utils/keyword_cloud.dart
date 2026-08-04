@@ -1,42 +1,8 @@
-import 'package:daily_you/models/entry.dart';
 import 'package:flutter/material.dart';
 
-/// 从日记中提取高频关键词。
+/// 从单篇日记文本中提取关键词。
 ///
 /// 英文按单词切分（小写、去停用词）；中文按双字 bigram 近似分词。
-/// 额外用「文档频率」过滤：出现在绝大多数日记里的词属于常用词，
-/// 不构成关键词，直接剔除。
-Map<String, int> extractKeywords(
-  Iterable<Entry> entries, {
-  int limit = 40,
-}) {
-  final counts = <String, int>{};
-  final docFrequency = <String, int>{};
-
-  final all = entries.where((e) => e.text.trim().isNotEmpty).toList();
-  if (all.isEmpty) return const {};
-
-  for (final entry in all) {
-    final text = entry.text;
-    final singleCounts = extractKeywordsFromText(text);
-    
-    for (final entry in singleCounts.entries) {
-      counts.update(entry.key, (v) => v + entry.value, ifAbsent: () => entry.value);
-      docFrequency.update(entry.key, (v) => v + 1, ifAbsent: () => 1);
-    }
-  }
-  // 剔除出现在超过半数日记中的常用词
-  final threshold = (all.length / 2).ceil();
-  final sorted = counts.entries
-      .where((e) => (docFrequency[e.key] ?? 0) < threshold)
-      .toList()
-    ..sort((a, b) => b.value.compareTo(a.value));
-
-  return {
-    for (final entry in sorted.take(limit)) entry.key: entry.value,
-  };
-}
-
 Map<String, int> extractKeywordsFromText(String text) {
   final counts = <String, int>{};
   if (text.trim().isEmpty) return counts;

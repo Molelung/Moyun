@@ -13,8 +13,6 @@ class NotificationManager {
   static FlutterLocalNotificationsPlugin? _notifications;
   FlutterLocalNotificationsPlugin get notifications => _notifications!;
 
-  bool justLaunched = true;
-
   Future<void> init() async {
     _notifications = FlutterLocalNotificationsPlugin();
     await _notifications!.initialize(

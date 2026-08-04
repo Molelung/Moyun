@@ -25,7 +25,6 @@ class AppText {
   static const String unitWords = '字';
   static const String unitDays = '天';
   static const String unitDaily = '字/天';
-  static const String wordCloudEmpty = '暂无词云';
 
   // 设置
   static const String fontSettingTitle = '正文字体';
