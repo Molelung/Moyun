@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:daily_you/config_provider.dart';
 import 'package:daily_you/device_info_service.dart';
+import 'package:daily_you/app_text.dart';
 import 'package:daily_you/widgets/auth_popup.dart';
 import 'package:daily_you/widgets/settings_icon_action.dart';
 import 'package:daily_you/widgets/settings_toggle.dart';
@@ -737,7 +738,7 @@ class SecuritySettingsPageState extends State<SecuritySettings> {
             child: Divider(),
           ),
           SettingsToggle(
-            title: "备份加密",
+            title: AppText.backupEncryption,
             settingsKey: ConfigKey.encryptBackup,
             onChanged: (value) async {
               if (value) {
@@ -747,7 +748,7 @@ class SecuritySettingsPageState extends State<SecuritySettings> {
                     context: context,
                     builder: (context) => AuthPopup(
                           mode: AuthPopupMode.setPassword,
-                          title: "设置备份密码",
+                          title: AppText.setBackupPassword,
                           showBiometrics: false,
                           dismissable: true,
                           targetConfigKey: ConfigKey.backupPassword,
@@ -765,14 +766,14 @@ class SecuritySettingsPageState extends State<SecuritySettings> {
           ),
           if (configProvider.get(ConfigKey.encryptBackup))
             SettingsIconAction(
-              title: "修改备份密码",
+              title: AppText.changeBackupPassword,
               icon: const Icon(Icons.edit_rounded),
               onPressed: () async {
                 await showDialog(
                     context: context,
                     builder: (context) => AuthPopup(
                           mode: AuthPopupMode.changePassword,
-                          title: "修改备份密码",
+                          title: AppText.changeBackupPassword,
                           showBiometrics: false,
                           dismissable: true,
                           targetConfigKey: ConfigKey.backupPassword,

@@ -102,15 +102,16 @@ class _HomePageState extends State<HomePage> {
         barrierDismissible: false,
         builder: (context) {
           return AlertDialog(
-            title: const Text("开启自动备份"),
-            content: const Text("为了保护您的日记数据安全，我们强烈建议您开启自动备份。\n\n请授权选择一个手机上的外部文件夹（如 Documents），日记将会在每次修改后自动且静默地备份到该目录。"),
+            title: const Text(AppText.backupDialogTitle),
+            content: const Text(AppText.backupDialogContent),
             actions: [
               TextButton(
                 onPressed: () async {
                   await configProvider.set(ConfigKey.hasPromptedAutoBackup, true);
                   if (context.mounted) Navigator.of(context).pop();
                 },
-                child: const Text("稍后再说", style: TextStyle(color: Colors.grey)),
+                child: const Text(AppText.backupLater,
+                    style: TextStyle(color: Colors.grey)),
               ),
               TextButton(
                 onPressed: () async {
@@ -118,7 +119,7 @@ class _HomePageState extends State<HomePage> {
                   if (context.mounted) Navigator.of(context).pop();
                   await AppDatabase.instance.selectExternalLocation((status) {});
                 },
-                child: const Text("授权选择文件夹"),
+                child: const Text(AppText.backupChoose),
               ),
             ],
           );

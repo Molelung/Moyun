@@ -155,10 +155,11 @@ class _TimelinePageState extends State<TimelinePage> {
                 ? const Center(child: Text(AppText.timelineEmpty))
                 : NotificationListener<ScrollNotification>(
                     onNotification: (notification) {
-                      // 已滑到最顶端时继续下拉 = 返回主界面（顺势下滑收起）
+                      // 浏览到时间轴最末端（拉到底）后，继续下滑 = 返回主界面
                       if (notification is UserScrollNotification &&
                           notification.direction == ScrollDirection.reverse &&
-                          notification.metrics.pixels <= 0) {
+                          notification.metrics.pixels >=
+                              notification.metrics.maxScrollExtent - 1) {
                         Navigator.of(context).pop();
                         return true;
                       }

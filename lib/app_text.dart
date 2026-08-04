@@ -38,4 +38,9 @@ class AppText {
       '为了保护您的日记数据安全，我们强烈建议您开启自动备份。\n\n请授权选择一个手机上的外部文件夹（如 Documents），日记将会在每次修改后自动且静默地备份到该目录。';
   static const String backupLater = '稍后再说';
   static const String backupChoose = '授权选择文件夹';
+
+  // 备份加密
+  static const String backupEncryption = '备份加密';
+  static const String setBackupPassword = '设置备份密码';
+  static const String changeBackupPassword = '修改备份密码';
 }
