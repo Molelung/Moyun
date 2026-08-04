@@ -13,6 +13,8 @@ class EntriesProvider with ChangeNotifier {
   List<Entry> entries = List.empty(growable: true);
   Map<DateTime, List<Entry>> _entriesByDay = {};
 
+  Entry? fallbackEntry;
+
   int _wordCount = 0;
   int get wordCount => _wordCount;
 
@@ -31,6 +33,7 @@ class EntriesProvider with ChangeNotifier {
     isAllLoaded = entries.length < _limit;
     
     await _calculateWordCount();
+    await _calculateFallbackEntry();
     _calculateEntriesByDay();
     
     isLoading = false;
@@ -58,6 +61,67 @@ class EntriesProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _calculateFallbackEntry() async {
+    final now = DateTime.now();
+    final idsAndDates = await EntryDao.getIdsAndDates();
+    if (idsAndDates.isEmpty) return;
+    
+    int? matchId;
+    for (int i = 1; i <= 30; i++) {
+      final targetYear = now.year - i;
+      for (final row in idsAndDates) {
+        final dateStr = row[EntryFields.timeCreate] as String;
+        final date = DateTime.tryParse(dateStr);
+        if (date != null && date.year == targetYear && date.month == now.month && date.day == now.day) {
+          matchId = row[EntryFields.id] as int;
+          break;
+        }
+      }
+      if (matchId != null) break;
+    }
+    
+    if (matchId != null) {
+      fallbackEntry = await EntryDao.get(matchId);
+    } else {
+      fallbackEntry = await EntryDao.getRandomEntry();
+    }
+  }
+
+  Future<void> jumpToDate(DateTime targetDate) async {
+    // 1. Check how many entries exist strictly BEFORE the targetDate
+    // Actually we want all entries newer than targetDate and up to targetDate.
+    // Easiest way: fetch all IDs and Dates to find the index.
+    final idsAndDates = await EntryDao.getIdsAndDates();
+    int targetIndex = idsAndDates.indexWhere((row) {
+      final dateStr = row[EntryFields.timeCreate] as String;
+      final date = DateTime.tryParse(dateStr);
+      if (date == null) return false;
+      // We want to find the first entry that is on or before the targetDate (descending order)
+      return date.isBefore(targetDate) || date.isAtSameMomentAs(targetDate);
+    });
+
+    if (targetIndex == -1) {
+      targetIndex = idsAndDates.length - 1; // Fallback to oldest
+    }
+    
+    if (targetIndex < 0) return;
+
+    // To ensure the item is loaded, we must load at least (targetIndex + _limit) items
+    final itemsToLoad = targetIndex + _limit;
+    
+    isLoading = true;
+    notifyListeners();
+
+    _offset = itemsToLoad; // Next loadMore will start from here
+    entries = await EntryDao.getPage(itemsToLoad, 0);
+    isAllLoaded = entries.length < itemsToLoad;
+    
+    _calculateEntriesByDay();
+    
+    isLoading = false;
+    notifyListeners();
+  }
+
   Future<List<Entry>> search(String query) async {
     if (query.trim().isEmpty) return [];
     return await EntryDao.search(query.trim());
@@ -69,7 +133,6 @@ class EntriesProvider with ChangeNotifier {
     // Insert the entry into the database so that it has an ID
     final entryWithId = await EntryDao.add(entry);
     entries.add(entryWithId);
-    await AppDatabase.instance.updateExternalDatabase();
 
     if (!skipUpdate) {
       // Reverse chronological order such that the most recent day is first
@@ -81,27 +144,31 @@ class EntriesProvider with ChangeNotifier {
     return entryWithId;
   }
 
-  Future<void> update(Entry entry) async {
+  Future<void> update(Entry entry, {bool skipUpdate = false}) async {
     await EntryDao.update(entry);
     final index = entries.indexWhere((x) => x.id == entry.id);
-    entries[index] = entry;
-    // Reverse chronological order such that the most recent day is first
-    entries.sort((a, b) => compareByTime(b.timeCreate, a.timeCreate));
-    await AppDatabase.instance.updateExternalDatabase();
-
-    await _calculateWordCount();
-    _calculateEntriesByDay();
-    notifyListeners();
+    if (index != -1) {
+      entries[index] = entry;
+    }
+    
+    if (!skipUpdate) {
+      // Reverse chronological order such that the most recent day is first
+      entries.sort((a, b) => compareByTime(b.timeCreate, a.timeCreate));
+      await _calculateWordCount();
+      _calculateEntriesByDay();
+      notifyListeners();
+    }
   }
 
-  Future<void> remove(Entry entry) async {
+  Future<void> remove(Entry entry, {bool skipUpdate = false}) async {
     await EntryDao.remove(entry.id!);
     entries.removeWhere((x) => x.id == entry.id);
-    await AppDatabase.instance.updateExternalDatabase();
 
-    await _calculateWordCount();
-    _calculateEntriesByDay();
-    notifyListeners();
+    if (!skipUpdate) {
+      await _calculateWordCount();
+      _calculateEntriesByDay();
+      notifyListeners();
+    }
   }
 
   /// Deletes every entry (and its images), then reloads the provider.

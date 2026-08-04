@@ -13,49 +13,18 @@ Map<String, int> extractKeywords(
   final counts = <String, int>{};
   final docFrequency = <String, int>{};
 
-  void add(String word) {
-    counts.update(word, (value) => value + 1, ifAbsent: () => 1);
-  }
-
   final all = entries.where((e) => e.text.trim().isNotEmpty).toList();
   if (all.isEmpty) return const {};
 
   for (final entry in all) {
     final text = entry.text;
-    final seen = <String>{};
-
-    // 英文单词
-    for (final match in RegExp(r'[A-Za-z]+').allMatches(text)) {
-      final word = match.group(0)!.toLowerCase();
-      if (word.length < 3 || _englishStopWords.contains(word)) continue;
-      add(word);
-      seen.add(word);
-    }
-
-    // 中文双字 bigram：两端都非停用字、且不含数字/符号
-    final cjkRuns =
-        RegExp(r'[\u3400-\u9FFF\uF900-\uFAFF]+').allMatches(text).toList();
-    for (final run in cjkRuns) {
-      final chars = run.group(0)!.characters;
-      for (var i = 0; i + 1 < chars.length; i++) {
-        final first = chars.elementAt(i);
-        final second = chars.elementAt(i + 1);
-        if (_chineseStopChars.contains(first) ||
-            _chineseStopChars.contains(second)) {
-          continue;
-        }
-        final bigram = '$first$second';
-        add(bigram);
-        seen.add(bigram);
-      }
-    }
-
-    // 记录文档频率
-    for (final word in seen) {
-      docFrequency.update(word, (v) => v + 1, ifAbsent: () => 1);
+    final singleCounts = extractKeywordsFromText(text);
+    
+    for (final entry in singleCounts.entries) {
+      counts.update(entry.key, (v) => v + entry.value, ifAbsent: () => entry.value);
+      docFrequency.update(entry.key, (v) => v + 1, ifAbsent: () => 1);
     }
   }
-
   // 剔除出现在超过半数日记中的常用词
   final threshold = (all.length / 2).ceil();
   final sorted = counts.entries
@@ -66,6 +35,41 @@ Map<String, int> extractKeywords(
   return {
     for (final entry in sorted.take(limit)) entry.key: entry.value,
   };
+}
+
+Map<String, int> extractKeywordsFromText(String text) {
+  final counts = <String, int>{};
+  if (text.trim().isEmpty) return counts;
+
+  void add(String word) {
+    counts.update(word, (value) => value + 1, ifAbsent: () => 1);
+  }
+
+  // 英文单词
+  for (final match in RegExp(r'[A-Za-z]+').allMatches(text)) {
+    final word = match.group(0)!.toLowerCase();
+    if (word.length < 3 || _englishStopWords.contains(word)) continue;
+    add(word);
+  }
+
+  // 中文双字 bigram
+  final cjkRuns =
+      RegExp(r'[\u3400-\u9FFF\uF900-\uFAFF]+').allMatches(text).toList();
+  for (final run in cjkRuns) {
+    final chars = run.group(0)!.characters;
+    for (var i = 0; i + 1 < chars.length; i++) {
+      final first = chars.elementAt(i);
+      final second = chars.elementAt(i + 1);
+      if (_chineseStopChars.contains(first) ||
+          _chineseStopChars.contains(second)) {
+        continue;
+      }
+      final bigram = '$first$second';
+      add(bigram);
+    }
+  }
+
+  return counts;
 }
 
 const _englishStopWords = {

@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -12,6 +11,7 @@ import 'package:daily_you/widgets/glass_action_button.dart';
 import 'package:daily_you/app_text.dart';
 import 'package:daily_you/config_provider.dart';
 import 'package:daily_you/database/app_database.dart';
+import 'package:daily_you/database/entry_dao.dart';
 import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:daily_you/widgets/local_image_loader.dart';
@@ -72,6 +72,7 @@ class _HomePageState extends State<HomePage> {
   bool _isSearchLoading = false;
   List<Entry>? _searchResults;
   int _lastDeckLength = -1;
+  Entry? _fallbackEntry;
 
   @override
   void initState() {
@@ -86,7 +87,18 @@ class _HomePageState extends State<HomePage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAutoBackupPermission();
+      _loadFallbackEntry();
     });
+  }
+
+  /// 无今日记录时，从全库加载「那年今日」或随机一篇（不依赖分页内存列表）
+  Future<void> _loadFallbackEntry() async {
+    final now = DateTime.now();
+    final entry = await EntryDao.getOnThisDayEntry(now.month, now.day) ??
+        await EntryDao.getRandomEntry();
+    if (mounted && entry != null) {
+      setState(() => _fallbackEntry = entry);
+    }
   }
 
   Future<void> _checkAutoBackupPermission() async {
@@ -409,26 +421,8 @@ class _HomePageState extends State<HomePage> {
     final bool isOverallLoading = entriesProvider.isLoading && entriesProvider.entries.isEmpty;
     final bool showLoading = isOverallLoading || _isSearchLoading;
 
-    // 无今日记录时的回退：优先“那年今日”，否则真正随机
-    Entry? fallbackEntry;
-    if (todays.isEmpty && entriesProvider.entries.isNotEmpty) {
-      // 1. 尝试寻找那年今日
-      for (int i = 1; i <= 30; i++) {
-        final targetYear = now.year - i;
-        final index = entriesProvider.entries.indexWhere(
-          (e) => e.timeCreate.year == targetYear && e.timeCreate.month == now.month && e.timeCreate.day == now.day,
-        );
-        if (index != -1) {
-          fallbackEntry = entriesProvider.entries[index];
-          break;
-        }
-      }
-      
-      // 2. 如果没找到，则真正随机
-      if (fallbackEntry == null) {
-        fallbackEntry = entriesProvider.entries[Random().nextInt(entriesProvider.entries.length)];
-      }
-    }
+    // 无今日记录时的回退（已异步从全库加载）
+    final Entry? fallbackEntry = _fallbackEntry;
     final fallbackImages = fallbackEntry != null
         ? entryImagesProvider.getForEntry(fallbackEntry)
         : <EntryImage>[];

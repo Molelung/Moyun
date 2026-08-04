@@ -5,6 +5,7 @@ import 'package:daily_you/database/image_storage.dart';
 import 'package:daily_you/models/entry.dart';
 import 'package:daily_you/models/image.dart';
 import 'package:daily_you/utils/file_layer.dart';
+import 'package:daily_you/utils/keyword_cloud.dart';
 import 'package:daily_you/providers/entries_provider.dart';
 import 'package:daily_you/providers/entry_images_provider.dart';
 
@@ -247,31 +248,51 @@ class AppDatabase {
   Future<void> updateExternalDatabase() async {
     if (usingExternalLocation()) {
       EasyDebounce.debounce("update-remote-database", Duration(seconds: 1),
-          () async {
-        // Create temporary export copy
-        final tmpExport =
-            "${_internalPath!}.export_${DateTime.now().millisecondsSinceEpoch}";
-        await database!.execute("VACUUM INTO '$tmpExport'");
+          _writeExternalBackup);
+    }
+  }
 
-        // Ensure export copy is valid
-        if (!await _validateSqliteDatabase(tmpExport)) {
-          await File(tmpExport).delete();
-          return;
-        }
+  /// 立即执行一次备份（切后台/锁屏时调用），不做防抖
+  Future<void> backupNow() async {
+    if (!usingExternalLocation()) return;
+    EasyDebounce.cancel("update-remote-database");
+    await _writeExternalBackup();
+  }
 
-        // Write to external location
-        var bytes =
-            await FileLayer.getFileBytes(tmpExport, useExternalPath: false);
-        if (bytes == null) return;
-        
-        final encryptedBytes = _encryptBytes(bytes);
-        if (encryptedBytes == null) return;
+  Future<void> _writeExternalBackup() async {
+    try {
+      // Create temporary export copy
+      final tmpExport =
+          "${_internalPath!}.export_${DateTime.now().millisecondsSinceEpoch}";
+      await database!.execute("VACUUM INTO '$tmpExport'");
 
-        await FileLayer.writeFileBytes(getExternalPath(), encryptedBytes,
+      // Ensure export copy is valid
+      if (!await _validateSqliteDatabase(tmpExport)) {
+        await File(tmpExport).delete();
+        return;
+      }
+
+      // Read + optional encrypt
+      var bytes =
+          await FileLayer.getFileBytes(tmpExport, useExternalPath: false);
+      if (bytes == null) return;
+
+      final encryptedBytes = _encryptBytes(bytes);
+      if (encryptedBytes == null) return;
+
+      // 目标文件不存在时先创建，避免向空对象写入导致静默失败
+      final externalDbUri = getExternalPath();
+      if (await FileLayer.exists(externalDbUri, name: "daily_you.db")) {
+        await FileLayer.writeFileBytes(externalDbUri, encryptedBytes,
             name: "daily_you.db");
+      } else {
+        await FileLayer.createFile(
+            externalDbUri, "daily_you.db", encryptedBytes);
+      }
 
-        await FileLayer.deleteFile(tmpExport, useExternalPath: false);
-      });
+      await FileLayer.deleteFile(tmpExport, useExternalPath: false);
+    } catch (e) {
+      _logger.warning('External database backup failed: $e');
     }
   }
 
@@ -371,9 +392,40 @@ CREATE TABLE $imagesTable (
 )
 ''');
 
-
+    await _createKeywordFrequencyTable(db);
+    await _backfillKeywordFrequencies(db);
 
     await _createWelcomeEntry();
+  }
+
+  /// 词云词频缓存表：日记增删改时增量维护，统计页零延迟读取。
+  Future<void> _createKeywordFrequencyTable(Database db) async {
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS keyword_frequencies (
+  word TEXT PRIMARY KEY,
+  term_count INTEGER NOT NULL DEFAULT 0,
+  doc_count INTEGER NOT NULL DEFAULT 0
+)
+''');
+  }
+
+  /// 升级/新建后一次性回填词频（仅执行一次）
+  Future<void> _backfillKeywordFrequencies(Database db) async {
+    final rows = await db.query(entriesTable, columns: [EntryFields.text]);
+    if (rows.isEmpty) return;
+    for (final row in rows) {
+      final text = row[EntryFields.text] as String;
+      if (text.trim().isEmpty) continue;
+      final keywords = extractKeywordsFromText(text);
+      for (final kv in keywords.entries) {
+        await db.execute(
+            'INSERT OR IGNORE INTO keyword_frequencies (word, term_count, doc_count) VALUES (?, 0, 0)',
+            [kv.key]);
+        await db.execute(
+            'UPDATE keyword_frequencies SET term_count = term_count + ?, doc_count = doc_count + 1 WHERE word = ?',
+            [kv.value, kv.key]);
+      }
+    }
   }
 
   Future<void> _createWelcomeEntry() async {
@@ -473,5 +525,9 @@ DROP TABLE old_entries;
       await db.execute('ALTER TABLE $entriesTable ADD COLUMN ${EntryFields.title} TEXT;');
     }
 
+    if (oldVersion < 5) {
+      await _createKeywordFrequencyTable(db);
+      await _backfillKeywordFrequencies(db);
+    }
   }
 }

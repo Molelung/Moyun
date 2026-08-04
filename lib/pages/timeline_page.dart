@@ -1,7 +1,6 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:daily_you/models/entry.dart';
@@ -90,24 +89,35 @@ class _TimelinePageState extends State<TimelinePage> {
     _groups.sort((a, b) => b.date.compareTo(a.date));
   }
 
-  void _jumpToDate(DateTime target) {
+  Future<void> _jumpToDate(DateTime target) async {
     if (_groups.isEmpty) return;
 
-    // Find closest group index
-    int closestIndex = -1;
-    Duration minDiff = const Duration(days: 99999);
+    final provider = Provider.of<EntriesProvider>(context, listen: false);
+    await provider.jumpToDate(target);
+    
+    if (!mounted) return;
+    
+    setState(() {
+      _buildGroups();
+    });
 
-    for (int i = 0; i < _groups.length; i++) {
-      final diff = _groups[i].date.difference(target).abs();
-      if (diff < minDiff) {
-        minDiff = diff;
-        closestIndex = i;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      int closestIndex = -1;
+      Duration minDiff = const Duration(days: 99999);
+
+      for (int i = 0; i < _groups.length; i++) {
+        final diff = _groups[i].date.difference(target).abs();
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestIndex = i;
+        }
       }
-    }
 
-    if (closestIndex != -1) {
-      itemScrollController.jumpTo(index: closestIndex);
-    }
+      if (closestIndex != -1) {
+        itemScrollController.jumpTo(index: closestIndex);
+      }
+    });
   }
 
   Future<void> _pickDate() async {
@@ -155,13 +165,17 @@ class _TimelinePageState extends State<TimelinePage> {
                 ? const Center(child: Text(AppText.timelineEmpty))
                 : NotificationListener<ScrollNotification>(
                     onNotification: (notification) {
-                      // 浏览到时间轴最末端（拉到底）后，继续下滑 = 返回主界面
-                      if (notification is UserScrollNotification &&
-                          notification.direction == ScrollDirection.reverse &&
-                          notification.metrics.pixels >=
-                              notification.metrics.maxScrollExtent - 1) {
-                        Navigator.of(context).pop();
-                        return true;
+                      if (notification is ScrollUpdateNotification) {
+                        // 浏览到时间轴最末端（拉到底）后，继续下滑 = 返回主界面
+                        if (notification.metrics.pixels >= notification.metrics.maxScrollExtent + 80) {
+                          Navigator.of(context).pop();
+                          return true;
+                        }
+                        // 滑到最顶端，继续下拉 = 返回主界面
+                        if (notification.metrics.pixels <= -80) {
+                          Navigator.of(context).pop();
+                          return true;
+                        }
                       }
                       return false;
                     },
@@ -174,6 +188,7 @@ class _TimelinePageState extends State<TimelinePage> {
                       },
                       itemScrollController: itemScrollController,
                       itemPositionsListener: itemPositionsListener,
+                      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                       // 贴左缘，下方留出跳转胶囊的空间
                       padding: const EdgeInsets.only(
                           top: 80, bottom: 120, left: 4, right: 16),

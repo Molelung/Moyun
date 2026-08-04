@@ -262,17 +262,32 @@ class MainApp extends StatefulWidget {
   State<MainApp> createState() => _MainAppState();
 }
 
-class _MainAppState extends State<MainApp> {
+class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 切到后台/锁屏时执行一次自动备份（0 卡顿，数据安全）
+    if (state == AppLifecycleState.paused) {
+      AppDatabase.instance.backupNow();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final themeModeProvider = Provider.of<ThemeModeProvider>(context);
     final configProvider = Provider.of<ConfigProvider>(context);
-    // 涓枃瀛椾綋锛氫豢瀹嬶紙榛樿锛夋垨妤蜂功锛屽彲鍦?澶栬 璁剧疆涓垏鎹?
+    // 中文字体：仿宋（默认）或楷书，可在 外观 设置中切换
     final cjkFont = configProvider.get(ConfigKey.cjkFont) == 'kaishu'
         ? 'XuandongKaishu'
         : 'SotyrFangsong';

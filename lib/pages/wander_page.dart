@@ -1,12 +1,11 @@
-import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:daily_you/database/entry_dao.dart';
 import 'package:daily_you/models/entry.dart';
 import 'package:daily_you/models/image.dart';
 import 'package:daily_you/app_text.dart';
-import 'package:daily_you/providers/entries_provider.dart';
 import 'package:daily_you/providers/entry_images_provider.dart';
 import 'package:daily_you/widgets/local_image_loader.dart';
 import 'package:daily_you/widgets/paper_texture.dart';
@@ -23,36 +22,40 @@ class WanderPage extends StatefulWidget {
 
 class _WanderPageState extends State<WanderPage> {
   final PageController _pageController = PageController();
-  final Random _random = Random();
-  List<Entry> _pool = [];
-  // 已展示过的条目索引，避免短时间内重复
-  final List<int> _recent = [];
+  // 已展示过的条目 id，避免短时间内重复
+  final Set<int> _recent = {};
   final List<Entry> _deck = [];
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _pool = Provider.of<EntriesProvider>(context, listen: false).entries;
-      if (_pool.isNotEmpty) {
-        _deck.addAll([_pick(), _pick(), _pick()]);
-      }
-      setState(() {});
-    });
+    _loadInitial();
   }
 
-  Entry _pick() {
-    if (_pool.isEmpty) return _pool.isEmpty ? _emptyEntry() : _pool.first;
-    int index = _random.nextInt(_pool.length);
-    // 避免重复展示最近几张
-    for (var guard = 0;
-        guard < 20 && _recent.contains(index) && _recent.length < _pool.length;
-        guard++) {
-      index = _random.nextInt(_pool.length);
+  Future<void> _loadInitial() async {
+    final entries = <Entry>[];
+    for (var i = 0; i < 3; i++) {
+      final entry = await _pickFromDb();
+      if (entry != null) entries.add(entry);
     }
-    _recent.add(index);
-    if (_recent.length > 8) _recent.removeAt(0);
-    return _pool[index];
+    if (mounted && entries.isNotEmpty) {
+      setState(() => _deck.addAll(entries));
+    } else if (mounted) {
+      setState(() => _deck.add(_emptyEntry()));
+    }
+  }
+
+  /// 从全库随机抽取一条（不依赖分页加载的内存列表）
+  Future<Entry?> _pickFromDb() async {
+    for (var guard = 0; guard < 10; guard++) {
+      final entry = await EntryDao.getRandomEntry();
+      if (entry == null) return null;
+      if (_recent.add(entry.id ?? -1)) {
+        if (_recent.length > 8) _recent.remove(_recent.first);
+        return entry;
+      }
+    }
+    return await EntryDao.getRandomEntry();
   }
 
   Entry _emptyEntry() => Entry(
@@ -64,7 +67,11 @@ class _WanderPageState extends State<WanderPage> {
   void _onPageChanged(int index) {
     // 向左滑到末尾时追加新的随机条目
     if (index >= _deck.length - 1) {
-      setState(() => _deck.add(_pick()));
+      _pickFromDb().then((entry) {
+        if (mounted && entry != null) {
+          setState(() => _deck.add(entry));
+        }
+      });
     }
   }
 
