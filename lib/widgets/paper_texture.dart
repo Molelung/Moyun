@@ -8,23 +8,36 @@ import 'package:flutter/material.dart';
 /// 亮色与深色各一张，跟随主题切换。
 ui.Image? _cachedPaperImage;
 ui.Image? _cachedDarkPaperImage;
+bool _darkImageLoading = false;
 
 Future<ui.Image> _ensurePaperImage({required bool dark}) async {
   final cache = dark ? _cachedDarkPaperImage : _cachedPaperImage;
   if (cache != null) return cache;
-  const w = 1080;
-  const h = 1920;
-  final recorder = ui.PictureRecorder();
-  final canvas = Canvas(recorder);
-  _paintTexture(canvas, Size(w.toDouble(), h.toDouble()), dark: dark);
-  final picture = recorder.endRecording();
-  final image = await picture.toImage(w, h);
-  if (dark) {
-    _cachedDarkPaperImage = image;
-  } else {
-    _cachedPaperImage = image;
+  // 防重入：build 可能多次触发深色纹理生成，等待在途任务完成
+  if (dark && _darkImageLoading) {
+    while (_darkImageLoading) {
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+    }
+    return _cachedDarkPaperImage!;
   }
-  return image;
+  if (dark) _darkImageLoading = true;
+  try {
+    const w = 1080;
+    const h = 1920;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    _paintTexture(canvas, Size(w.toDouble(), h.toDouble()), dark: dark);
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(w, h);
+    if (dark) {
+      _cachedDarkPaperImage = image;
+    } else {
+      _cachedPaperImage = image;
+    }
+    return image;
+  } finally {
+    if (dark) _darkImageLoading = false;
+  }
 }
 
 /// 实际绘制宣纸纹理（仅在生成缓存时执行一次）。

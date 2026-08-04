@@ -20,8 +20,11 @@ String _toChineseNumber(int num, {bool isYear = false}) {
 String _dateString(DateTime date) =>
     "${_toChineseNumber(date.year, isYear: true)}年${_toChineseNumber(date.month)}月${_toChineseNumber(date.day)}日";
 
-/// 分享用的日记卡片：固定浅色宣纸风格（不受应用主题影响），
-/// 供 RepaintBoundary 渲染成图片后分享到微信/QQ/WhatsApp 等。
+/// 分享用的日记卡片：布局与首页玻璃卡片一致（原模原样），
+/// 正文全文展示（高度自适应，不截断），背景为固定浅色宣纸（图片不可透明）。
+///
+/// 注意：不指定自定义字体，沿用全局主题字体栈（与 app 内渲染完全一致），
+/// 避免 fallback 到手写体出现意外下划线。
 class EntryShareCard extends StatelessWidget {
   final Entry entry;
   final List<Uint8List> imageBytes;
@@ -36,95 +39,70 @@ class EntryShareCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const bgTop = Color(0xFFFBF8F1);
-    const bgBottom = Color(0xFFF0E9D8);
     const ink = Color(0xFF2C2A29);
-    const inkSoft = Color(0xFF8A8177);
-    const accent = Color(0xFF5A4D41);
+    const inkSoft = Color(0xFF7A7266);
+    final theme = Theme.of(context);
     final showTitle = entry.title != null && entry.title!.isNotEmpty;
 
     return Container(
       width: width,
-      padding: const EdgeInsets.fromLTRB(28, 36, 28, 28),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
+        // 浅色宣纸底（与 app 亮色主题一致）
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [bgTop, bgBottom],
+          colors: [Color(0xFFF7F4ED), Color(0xFFEDE5D2)],
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: accent.withValues(alpha: 0.15), width: 1),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+            color: ink.withValues(alpha: 0.12), width: 0.5),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Center(
-            child: Text(
-              _dateString(entry.timeCreate),
-              style: const TextStyle(
-                color: accent,
-                fontSize: 15,
-                letterSpacing: 2,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Center(
-            child: Container(
-              width: 56,
-              height: 2,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(1),
-              ),
+          Text(
+            _dateString(entry.timeCreate),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: inkSoft,
             ),
           ),
           if (showTitle) ...[
-            const SizedBox(height: 22),
-            Center(
-              child: Text(
-                entry.title!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: ink,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'SotyrFangsong',
-                ),
+            const SizedBox(height: 14),
+            Text(
+              entry.title!,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: ink,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
           const SizedBox(height: 20),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 560),
-            child: SingleChildScrollView(
-              child: Text(
-                entry.text.trim(),
-                style: const TextStyle(
-                  color: ink,
-                  fontSize: 17,
-                  height: 1.9,
-                  fontFamily: 'SotyrFangsong',
-                ),
-              ),
+          // 正文：全文展示，不限制高度（分享图为长图）
+          Text(
+            entry.text.trim(),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: ink,
+              height: 1.8,
             ),
           ),
           if (imageBytes.isNotEmpty) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                for (final bytes in imageBytes.take(3))
+                for (final bytes in imageBytes.take(4))
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                       child: Image.memory(
                         bytes,
-                        width: 96,
-                        height: 96,
+                        width: 90,
+                        height: 110,
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
                       ),
@@ -133,17 +111,6 @@ class EntryShareCard extends StatelessWidget {
               ],
             ),
           ],
-          const SizedBox(height: 24),
-          Center(
-            child: Text(
-              '墨云 · Moyun',
-              style: TextStyle(
-                color: inkSoft.withValues(alpha: 0.8),
-                fontSize: 12,
-                letterSpacing: 3,
-              ),
-            ),
-          ),
         ],
       ),
     );

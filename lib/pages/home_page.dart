@@ -444,7 +444,8 @@ class _HomePageState extends State<HomePage> {
       if (deck.isNotEmpty) {
         initial = _infiniteInitialPage - (_infiniteInitialPage % deck.length);
       }
-      _pageController?.dispose();
+      // 替换引用即可：旧 controller 无监听者，交给 GC。
+      // 切勿在 build 中 dispose 正在使用的 controller。
       _pageController = PageController(
           initialPage: initial, viewportFraction: _pageViewportFraction);
     }

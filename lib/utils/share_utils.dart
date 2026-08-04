@@ -22,9 +22,9 @@ Future<void> shareEntryAsImage(
   final width = MediaQuery.of(context).size.width - 48;
   final overlay = Overlay.of(context, rootOverlay: true);
 
-  // 预加载日记图片字节（最多 3 张）
+  // 预加载日记图片字节（最多 4 张，与首页卡片一致）
   final imageBytes = <Uint8List>[];
-  for (final image in images.take(3)) {
+  for (final image in images.take(4)) {
     try {
       final bytes = await File(
         '${await ImageStorage.instance.getInternalFolder()}/${image.imgPath}',
@@ -35,7 +35,7 @@ Future<void> shareEntryAsImage(
     }
   }
 
-  // 屏幕外渲染分享卡片，再截图成 PNG
+  // 屏幕外渲染分享卡片，再截图成 PNG（2x 已足够清晰，3x 徒增内存与耗时）
   final overlayEntry = OverlayEntry(
     builder: (_) => Positioned(
       left: -10000,
@@ -56,7 +56,7 @@ Future<void> shareEntryAsImage(
   try {
     final boundary =
         key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-    final image = await boundary.toImage(pixelRatio: 3);
+    final image = await boundary.toImage(pixelRatio: 2);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     image.dispose();
     if (byteData == null) return;
@@ -75,7 +75,7 @@ Future<void> shareEntryAsImage(
   }
 }
 
-/// 底部弹出分享菜单（长按卡片或编辑页分享键共用）。
+/// 底部弹出分享菜单（长按卡片或编辑页分享键共用），磨砂玻璃样式。
 Future<void> showShareMenu(
   BuildContext context,
   Entry entry,
@@ -89,25 +89,33 @@ Future<void> showShareMenu(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: Theme.of(sheetContext)
-                .colorScheme
-                .surface
-                .withValues(alpha: 0.96),
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+                color: Colors.white.withValues(alpha: 0.6), width: 0.8),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.image_outlined),
-                title: const Text('分享为图片'),
-                subtitle: const Text('生成日记图片，可发到微信、QQ、WhatsApp 等'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  shareEntryAsImage(context, entry, images);
-                },
+          clipBehavior: Clip.antiAlias,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                color: Colors.white.withValues(alpha: 0.75),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.image_outlined),
+                      title: const Text('分享为图片'),
+                      subtitle: const Text('生成日记图片，可发到微信、QQ、WhatsApp 等'),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        shareEntryAsImage(context, entry, images);
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
         ),
       );
