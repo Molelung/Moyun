@@ -5,8 +5,6 @@ import 'package:daily_you/config_provider.dart';
 import 'package:system_theme/system_theme.dart';
 
 class ThemeModeProvider with ChangeNotifier {
-  // 宣纸风格应用始终以亮色为基底；"跟随系统"仅在系统为亮色时生效，
-  // 避免鸿蒙等系统暗色模式下出现"白纸白字"。
   ThemeMode _themeMode = ThemeMode.light;
   ThemeMode get themeMode => _themeMode;
 
@@ -46,8 +44,10 @@ class ThemeModeProvider with ChangeNotifier {
     final configTheme = ConfigProvider.instance.get(ConfigKey.theme);
     if (configTheme == 'dark' || configTheme == 'amoled') {
       _themeMode = ThemeMode.dark;
+    } else if (configTheme == 'system') {
+      // 跟随系统：深色模式由深色宣纸主题承接（背景与文字均已适配）
+      _themeMode = ThemeMode.system;
     } else {
-      // 'system' 与 'light' 都解析为亮色主题
       _themeMode = ThemeMode.light;
     }
     notifyListeners();

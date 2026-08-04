@@ -21,6 +21,7 @@ import 'package:daily_you/pages/settings_page.dart';
 import 'package:daily_you/pages/timeline_page.dart';
 import 'package:daily_you/pages/statistics_page.dart';
 import 'package:daily_you/pages/wander_page.dart';
+import 'package:daily_you/utils/share_utils.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -306,6 +307,7 @@ class _HomePageState extends State<HomePage> {
 
     return GestureDetector(
       onTap: () => _openEntry(entry, images),
+      onLongPress: () => showShareMenu(context, entry, images),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8.0),
         child: RepaintBoundary(

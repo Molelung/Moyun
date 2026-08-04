@@ -19,7 +19,11 @@ class NotificationManager {
         settings: const InitializationSettings(
             android: AndroidInitializationSettings('@drawable/ic_notification'),
             linux:
-                LinuxInitializationSettings(defaultActionName: 'Log Today')));
+                LinuxInitializationSettings(defaultActionName: 'Log Today')),
+        onDidReceiveNotificationResponse: (response) {
+          // 点击日记提醒通知 → 直达写日记页（冷启动由启动标志兜底）
+          handleNotificationTap(response.payload);
+        });
   }
 
   Future<bool> hasNotificationPermission() async {

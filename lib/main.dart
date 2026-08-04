@@ -7,6 +7,7 @@ import 'package:daily_you/custom_locale_delegates.dart';
 import 'package:daily_you/database/app_database.dart';
 import 'package:daily_you/device_info_service.dart';
 import 'package:daily_you/notification_manager.dart';
+import 'package:daily_you/pages/edit_entry_page.dart';
 import 'package:daily_you/pages/launch_page.dart';
 import 'package:daily_you/providers/entries_provider.dart';
 import 'package:daily_you/providers/entry_images_provider.dart';
@@ -24,6 +25,33 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:time_range_picker/time_range_picker.dart';
 import 'package:provider/provider.dart';
+
+/// 全局导航键：通知点击后用于直达写日记页。
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
+/// 冷启动时通知点击先于导航就绪，此标志兜底到 MobileScaffold 消费。
+bool _pendingLogToday = false;
+
+/// 通知点击处理：日记提醒通知 → 直接打开写日记页。
+void handleNotificationTap(String? payload) {
+  if (payload != 'log_today') return;
+  final nav = appNavigatorKey.currentState;
+  if (nav != null) {
+    nav.push(MaterialPageRoute(
+      builder: (_) =>
+          const AddEditEntryPage(entry: null, openCamera: false, images: []),
+    ));
+  } else {
+    _pendingLogToday = true;
+  }
+}
+
+/// 供 MobileScaffold 在启动后消费冷启动标志。
+bool consumePendingLogToday() {
+  final pending = _pendingLogToday;
+  _pendingLogToday = false;
+  return pending;
+}
 
 @pragma('vm:entry-point')
 void onThisDayCallbackDispatcher() async {
@@ -69,7 +97,7 @@ void onThisDayCallbackDispatcher() async {
             title: title,
             body: description,
             notificationDetails: NotificationDetails(android: androidDetails),
-            payload: DateTime.now().toIso8601String());
+            payload: 'on_this_day');
       }
     }
 
@@ -122,7 +150,7 @@ void callbackDispatcher() async {
             title: title,
             body: description,
             notificationDetails: platformChannelSpecifics,
-            payload: DateTime.now().toIso8601String());
+            payload: 'log_today');
       }
     }
     AppDatabase.instance.close();
@@ -472,6 +500,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
               FocusManager.instance.primaryFocus?.unfocus();
             },
             child: MaterialApp(
+                navigatorKey: appNavigatorKey,
                 onGenerateTitle: (context) =>
                     AppLocalizations.of(context)!.appTitle,
                 title: 'Daily You',

@@ -5,32 +5,45 @@ import 'package:flutter/material.dart';
 
 /// 宣纸纹理：只生成一次（首次进入时），之后作为图片缓存，
 /// 每帧只是廉价地贴图，避免动画/滚动时反复重绘。
+/// 亮色与深色各一张，跟随主题切换。
 ui.Image? _cachedPaperImage;
+ui.Image? _cachedDarkPaperImage;
 
-Future<void> _ensurePaperImage() async {
-  if (_cachedPaperImage != null) return;
+Future<ui.Image> _ensurePaperImage({required bool dark}) async {
+  final cache = dark ? _cachedDarkPaperImage : _cachedPaperImage;
+  if (cache != null) return cache;
   const w = 1080;
   const h = 1920;
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
-  _paintTexture(canvas, Size(w.toDouble(), h.toDouble()));
+  _paintTexture(canvas, Size(w.toDouble(), h.toDouble()), dark: dark);
   final picture = recorder.endRecording();
-  _cachedPaperImage = await picture.toImage(w, h);
+  final image = await picture.toImage(w, h);
+  if (dark) {
+    _cachedDarkPaperImage = image;
+  } else {
+    _cachedPaperImage = image;
+  }
+  return image;
 }
 
 /// 实际绘制宣纸纹理（仅在生成缓存时执行一次）。
-void _paintTexture(Canvas canvas, Size size) {
+void _paintTexture(Canvas canvas, Size size, {required bool dark}) {
   final random = Random(20260803);
 
-  // Warm vertical gradient across the sheet.
+  // 底色：亮色为暖白宣纸，深色为墨色纸张
+  final base = dark ? const Color(0xFF211D19) : const Color(0xFFF7F4ED);
+  final baseEnd = dark ? const Color(0xFF2A251F) : const Color(0xFFE8DFC8);
+  final fiberColor = dark ? const Color(0xFFD8C9A8) : const Color(0xFF3E3527);
+
   final gradient = Paint()
     ..shader = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        Color.lerp(const Color(0xFFF7F4ED), Colors.white, 0.18)!,
-        const Color(0xFFF7F4ED),
-        Color.lerp(const Color(0xFFF7F4ED), const Color(0xFFE8DFC8), 0.55)!,
+        Color.lerp(base, dark ? Colors.black : Colors.white, 0.18)!,
+        base,
+        Color.lerp(base, baseEnd, 0.55)!,
       ],
     ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
   canvas.drawRect(Offset.zero & size, gradient);
@@ -41,10 +54,8 @@ void _paintTexture(Canvas canvas, Size size) {
     final x = random.nextDouble() * size.width;
     final y = random.nextDouble() * size.height;
     final r = 30 + random.nextDouble() * 110;
-    blotch.color = (random.nextBool()
-            ? const Color(0xFF3E3527)
-            : Colors.white)
-        .withValues(alpha: 0.020);
+    blotch.color = (random.nextBool() ? fiberColor : Colors.white)
+        .withValues(alpha: dark ? 0.030 : 0.020);
     canvas.drawCircle(Offset(x, y), r, blotch);
   }
 
@@ -57,10 +68,8 @@ void _paintTexture(Canvas canvas, Size size) {
     final y = random.nextDouble() * size.height;
     final angle = random.nextDouble() * pi * 2;
     final len = 4 + random.nextDouble() * 14;
-    fiber.color = (random.nextBool()
-            ? const Color(0xFF3E3527)
-            : Colors.white)
-        .withValues(alpha: 0.035);
+    fiber.color =
+        (random.nextBool() ? fiberColor : Colors.white).withValues(alpha: 0.035);
     canvas.drawLine(
         Offset(x, y), Offset(x + cos(angle) * len, y + sin(angle) * len), fiber);
   }
@@ -71,10 +80,8 @@ void _paintTexture(Canvas canvas, Size size) {
     final x = random.nextDouble() * size.width;
     final y = random.nextDouble() * size.height;
     final r = 0.4 + random.nextDouble() * 1.1;
-    speck.color = (random.nextBool()
-            ? const Color(0xFF3E3527)
-            : Colors.white)
-        .withValues(alpha: 0.05);
+    speck.color = (random.nextBool() ? fiberColor : Colors.white)
+        .withValues(alpha: dark ? 0.06 : 0.05);
     canvas.drawCircle(Offset(x, y), r, speck);
   }
 
@@ -86,7 +93,7 @@ void _paintTexture(Canvas canvas, Size size) {
       colors: [
         Colors.transparent,
         Colors.transparent,
-        const Color(0xFF3E3527).withValues(alpha: 0.10),
+        (dark ? Colors.black : fiberColor).withValues(alpha: dark ? 0.18 : 0.10),
       ],
       stops: const [0.0, 0.72, 1.0],
     ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
@@ -94,13 +101,17 @@ void _paintTexture(Canvas canvas, Size size) {
 }
 
 class _CachedPaperPainter extends CustomPainter {
+  _CachedPaperPainter({required this.dark});
+
+  final bool dark;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final image = _cachedPaperImage;
+    final image = dark ? _cachedDarkPaperImage : _cachedPaperImage;
     if (image == null) {
       // 兜底：生成完成前先用纯纸色
       canvas.drawRect(Offset.zero & size,
-          Paint()..color = const Color(0xFFF7F4ED));
+          Paint()..color = dark ? const Color(0xFF211D19) : const Color(0xFFF7F4ED));
       return;
     }
     canvas.drawImageRect(
@@ -112,10 +123,12 @@ class _CachedPaperPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _CachedPaperPainter oldDelegate) =>
+      oldDelegate.dark != dark;
 }
 
 /// 全屏宣纸背景（纹理缓存后仅贴图，动画期间不重绘）。
+/// 跟随主题明暗自动切换深浅两套纹理。
 class RicePaperBackground extends StatefulWidget {
   const RicePaperBackground({super.key});
 
@@ -127,17 +140,24 @@ class _RicePaperBackgroundState extends State<RicePaperBackground> {
   @override
   void initState() {
     super.initState();
-    // 异步生成一次纹理缓存，完成后触发重绘
-    _ensurePaperImage().then((_) {
+    // 异步生成亮色纹理缓存，完成后触发重绘
+    _ensurePaperImage(dark: false).then((_) {
       if (mounted) setState(() {});
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    if (dark && _cachedDarkPaperImage == null) {
+      // 首次进入深色模式：异步生成深色纹理
+      _ensurePaperImage(dark: true).then((_) {
+        if (mounted) setState(() {});
+      });
+    }
     return RepaintBoundary(
       child: CustomPaint(
-        painter: _CachedPaperPainter(),
+        painter: _CachedPaperPainter(dark: dark),
         size: Size.infinite,
       ),
     );

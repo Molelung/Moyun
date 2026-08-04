@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:word_count/word_count.dart';
 import 'package:daily_you/database/image_storage.dart';
 import 'package:daily_you/models/image.dart';
 import 'package:daily_you/providers/entries_provider.dart';
@@ -18,6 +19,7 @@ import 'package:daily_you/l10n/generated/app_localizations.dart';
 import 'package:daily_you/models/entry.dart';
 import 'package:daily_you/widgets/entry_image_picker.dart';
 import 'package:daily_you/widgets/entry_text_edit.dart';
+import 'package:daily_you/utils/share_utils.dart';
 
 class AddEditEntryPage extends StatefulWidget {
   final Entry? entry;
@@ -229,6 +231,22 @@ class _AddEditEntryPageState extends State<AddEditEntryPage>
                         ),
                       ),
                       actions: [
+                        Center(
+                          child: GlassActionButton(
+                            icon: Icons.share_rounded,
+                            onTap: () {
+                              // 分享当前（含未保存）内容为图片
+                              final shareEntry = _entry.copy(
+                                title: _title.isEmpty ? null : _title,
+                                text: _textEditingController.text,
+                                timeCreate: entryDate ?? _entry.timeCreate,
+                              );
+                              showShareMenu(
+                                  context, shareEntry, _currentImages);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Center(child: _deleteButton()),
                         const SizedBox(width: 8),
                         Center(child: _saveButton()),
@@ -407,6 +425,23 @@ class _AddEditEntryPageState extends State<AddEditEntryPage>
                           undoHistoryController: _undoController,
                           onExpand: _openFullScreenEditor,
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // 实时字数显示
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _textEditingController,
+                        builder: (context, value, _) {
+                          return Text(
+                            '${wordsCount(value.text)} 字',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.45),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],

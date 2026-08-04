@@ -11,6 +11,7 @@ import 'package:daily_you/widgets/glass_action_button.dart';
 import 'package:daily_you/widgets/paper_texture.dart';
 import 'package:daily_you/app_text.dart';
 import 'package:daily_you/pages/edit_entry_page.dart';
+import 'package:daily_you/utils/share_utils.dart';
 
 class TimelineGroup {
   final DateTime date;
@@ -377,6 +378,7 @@ class _TimelinePageState extends State<TimelinePage> {
           ),
         ));
       },
+      onLongPress: () => showShareMenu(context, entry, images),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(18),

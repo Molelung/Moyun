@@ -79,8 +79,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettings> {
                     child: Text(AppLocalizations.of(context)!.themeAmoled)),
               ],
               onChanged: (String? newValue) {
-                // 与启动解析一致：'system'/'light' 都是恒亮（宣纸设计），
-                // 避免选择时与重启后行为不一致
+                // 与启动解析一致：'system' 跟随系统（深色有专用宣纸主题）
                 ThemeMode themeMode;
                 switch (newValue) {
                   case "dark":
@@ -88,6 +87,8 @@ class _AppearanceSettingsPageState extends State<AppearanceSettings> {
                     themeMode = ThemeMode.dark;
                     break;
                   case "system":
+                    themeMode = ThemeMode.system;
+                    break;
                   case "light":
                   default:
                     themeMode = ThemeMode.light;
