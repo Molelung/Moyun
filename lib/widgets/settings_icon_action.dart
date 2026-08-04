@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:daily_you/widgets/glass_container.dart';
 
 class SettingsIconAction extends StatelessWidget {
   final String title;
@@ -19,9 +20,9 @@ class SettingsIconAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding:
-          const EdgeInsets.only(top: 8.0, bottom: 8.0, left: 16.0, right: 16.0),
+    return GlassContainer(
+      margin: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+      padding: const EdgeInsets.only(top: 8.0, bottom: 8.0, left: 16.0, right: 16.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

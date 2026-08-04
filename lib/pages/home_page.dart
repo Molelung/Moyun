@@ -9,7 +9,11 @@ import 'package:daily_you/models/image.dart';
 import 'package:daily_you/providers/entries_provider.dart';
 import 'package:daily_you/providers/entry_images_provider.dart';
 import 'package:daily_you/widgets/glass_container.dart';
+import 'package:daily_you/widgets/glass_action_button.dart';
+import 'package:daily_you/config_provider.dart';
+import 'package:daily_you/database/app_database.dart';
 import 'package:easy_debounce/easy_debounce.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:daily_you/widgets/local_image_loader.dart';
 import 'package:daily_you/widgets/paper_texture.dart';
 import 'package:daily_you/pages/edit_entry_page.dart';
@@ -51,19 +55,87 @@ String _toFinancialNumber(int num) {
 }
 
 class _HomePageState extends State<HomePage> {
-  final PageController _pageController = PageController();
+  PageController? _pageController;
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   String _searchQuery = '';
+  bool _isSearching = false;
+  bool _isSearchLoading = false;
+  List<Entry>? _searchResults;
+  int _lastDeckLength = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchFocusNode.addListener(() {
+      if (mounted) {
+        setState(() {
+          _isSearching = _searchFocusNode.hasFocus;
+        });
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAutoBackupPermission();
+    });
+  }
+
+  Future<void> _checkAutoBackupPermission() async {
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+    bool useExternalDb = configProvider.get(ConfigKey.useExternalDb) ?? false;
+    
+    // 如果没有开启外部备份，且之前没有拒绝过（这里简单处理为只要没开就弹，或者通过另一个标识位记录）
+    // 为了防止每次启动都弹窗烦人，可以使用一个标识位。
+    bool hasPrompted = configProvider.get(ConfigKey.hasPromptedAutoBackup) ?? false;
+    if (!useExternalDb && !hasPrompted) {
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text("开启自动备份"),
+            content: const Text("为了保护您的日记数据安全，我们强烈建议您开启自动备份。\n\n请授权选择一个手机上的外部文件夹（如 Documents），日记将会在每次修改后自动且静默地备份到该目录。"),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  await configProvider.set(ConfigKey.hasPromptedAutoBackup, true);
+                  if (context.mounted) Navigator.of(context).pop();
+                },
+                child: const Text("稍后再说", style: TextStyle(color: Colors.grey)),
+              ),
+              TextButton(
+                onPressed: () async {
+                  await configProvider.set(ConfigKey.hasPromptedAutoBackup, true);
+                  if (context.mounted) Navigator.of(context).pop();
+                  await AppDatabase.instance.selectExternalLocation((status) {});
+                },
+                child: const Text("授权选择文件夹"),
+              ),
+            ],
+          );
+        },
+      );
+    }
+  }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _pageController?.dispose();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
   void _onPanEnd(DragEndDetails details) {
     if (details.primaryVelocity == null) return;
+    
+    if (_isSearching) {
+      if (details.primaryVelocity!.abs() > 300) {
+        _searchFocusNode.unfocus();
+      }
+      return;
+    }
+
     if (details.primaryVelocity! < -300) {
       // Swipe up -> Timeline (enters sliding up from the bottom)
       _pushFromBottom(const TimelinePage());
@@ -130,28 +202,7 @@ class _HomePageState extends State<HomePage> {
     ));
   }
 
-  Widget _buildTopButton(IconData icon, VoidCallback onTap) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.35),
-            shape: BoxShape.circle,
-            border: Border.all(
-                color: Colors.white.withValues(alpha: 0.6), width: 0.8),
-          ),
-          child: IconButton(
-            iconSize: 22,
-            padding: const EdgeInsets.all(9),
-            icon: Icon(icon, color: Theme.of(context).colorScheme.onSurface),
-            onPressed: onTap,
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildSearchField() {
     final theme = Theme.of(context);
@@ -160,12 +211,33 @@ class _HomePageState extends State<HomePage> {
       radius: 24,
       blur: 8,
       child: TextField(
+        focusNode: _searchFocusNode,
         controller: _searchController,
         onChanged: (value) {
+          if (mounted) setState(() => _isSearchLoading = true);
           // 防抖：停止输入 250ms 后才重建结果
           EasyDebounce.debounce(
-              "home-search", const Duration(milliseconds: 250), () {
-            if (mounted) setState(() => _searchQuery = value);
+              "home-search", const Duration(milliseconds: 250), () async {
+            final query = value.trim();
+            if (query.isEmpty) {
+              if (mounted) {
+                setState(() {
+                  _searchQuery = query;
+                  _searchResults = null;
+                  _isSearchLoading = false;
+                });
+              }
+              return;
+            }
+            final entriesProvider = Provider.of<EntriesProvider>(context, listen: false);
+            final results = await entriesProvider.search(query);
+            if (mounted) {
+              setState(() {
+                _searchQuery = query;
+                _searchResults = results;
+                _isSearchLoading = false;
+              });
+            }
           });
         },
         style: theme.textTheme.bodyMedium
@@ -194,7 +266,7 @@ class _HomePageState extends State<HomePage> {
     return GestureDetector(
       onTap: () => _openEntry(entry, images),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28.0),
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
         child: RepaintBoundary(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
@@ -284,6 +356,8 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
+      ),
+    ),
     );
   }
 
@@ -306,23 +380,33 @@ class _HomePageState extends State<HomePage> {
     // 搜索模式：命中所有日记；否则展示今日日记
     final List<Entry> deck;
     if (_searchQuery.trim().isNotEmpty) {
-      final query = _searchQuery.trim().toLowerCase();
-      deck = entriesProvider.entries
-          .where((e) =>
-              e.text.toLowerCase().contains(query) ||
-              (e.title?.toLowerCase().contains(query) ?? false))
-          .toList()
-        ..sort((a, b) => b.timeCreate.compareTo(a.timeCreate));
+      deck = _searchResults ?? [];
     } else {
       deck = todays;
     }
 
-    // 无今日记录时的随机回退
+    final bool isOverallLoading = entriesProvider.isLoading && entriesProvider.entries.isEmpty;
+    final bool showLoading = isOverallLoading || _isSearchLoading;
+
+    // 无今日记录时的回退：优先“那年今日”，否则真正随机
     Entry? fallbackEntry;
     if (todays.isEmpty && entriesProvider.entries.isNotEmpty) {
-      final seed = now.year * 10000 + now.month * 100 + now.day;
-      fallbackEntry = entriesProvider
-          .entries[Random(seed).nextInt(entriesProvider.entries.length)];
+      // 1. 尝试寻找那年今日
+      for (int i = 1; i <= 30; i++) {
+        final targetYear = now.year - i;
+        final index = entriesProvider.entries.indexWhere(
+          (e) => e.timeCreate.year == targetYear && e.timeCreate.month == now.month && e.timeCreate.day == now.day,
+        );
+        if (index != -1) {
+          fallbackEntry = entriesProvider.entries[index];
+          break;
+        }
+      }
+      
+      // 2. 如果没找到，则真正随机
+      if (fallbackEntry == null) {
+        fallbackEntry = entriesProvider.entries[Random().nextInt(entriesProvider.entries.length)];
+      }
     }
     final fallbackImages = fallbackEntry != null
         ? entryImagesProvider.getForEntry(fallbackEntry)
@@ -330,6 +414,16 @@ class _HomePageState extends State<HomePage> {
 
     final cardHeight =
         (MediaQuery.of(context).size.height * 0.62).clamp(400.0, 600.0);
+
+    if (_pageController == null || _lastDeckLength != deck.length) {
+      _lastDeckLength = deck.length;
+      int initial = 10000;
+      if (deck.isNotEmpty) {
+        initial = 10000 - (10000 % deck.length);
+      }
+      _pageController?.dispose();
+      _pageController = PageController(initialPage: initial, viewportFraction: 0.88);
+    }
 
     return Scaffold(
       body: GestureDetector(
@@ -342,43 +436,81 @@ class _HomePageState extends State<HomePage> {
             Positioned(
               top: MediaQuery.of(context).padding.top + 12,
               left: 16,
-              child: _buildTopButton(Icons.explore_rounded, () {
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (context) => const WanderPage(),
-                ));
-              }),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _isSearching ? 0.0 : 1.0,
+                child: IgnorePointer(
+                  ignoring: _isSearching,
+                  child: GlassActionButton(
+                    icon: Icons.explore_rounded,
+                    onTap: () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (context) => const WanderPage(),
+                      ));
+                    },
+                  ),
+                ),
+              ),
             ),
 
             // Top Right: [＋][⚙]
             Positioned(
               top: MediaQuery.of(context).padding.top + 12,
               right: 16,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildTopButton(Icons.add_rounded, _addNewEntry),
-                  const SizedBox(width: 8),
-                  _buildTopButton(Icons.settings_rounded, _openSettings),
-                ],
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _isSearching ? 0.0 : 1.0,
+                child: IgnorePointer(
+                  ignoring: _isSearching,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GlassActionButton(
+                        icon: Icons.add_rounded,
+                        onTap: _addNewEntry,
+                      ),
+                      const SizedBox(width: 8),
+                      GlassActionButton(
+                        icon: Icons.settings_rounded,
+                        onTap: _openSettings,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
 
             // Center Card(s)：PageView 支持跟手滑动动画
             // 搜索时展示匹配的日记，否则展示今日日记
             Center(
-              child: deck.isNotEmpty
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _isSearching ? 0.0 : 1.0,
+                child: IgnorePointer(
+                  ignoring: _isSearching,
+                  child: showLoading 
+                  ? SizedBox(
+                      height: cardHeight,
+                      child: Center(
+                        child: SpinKitPouringHourGlassRefined(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                          size: 60.0,
+                        ),
+                      ),
+                    )
+                  : deck.isNotEmpty
                   ? SizedBox(
                       height: cardHeight,
                       child: PageView.builder(
                         controller: _pageController,
-                        itemCount: deck.length,
                         itemBuilder: (context, index) {
-                          final entry = deck[index];
+                          final realIndex = index % deck.length;
+                          final entry = deck[realIndex];
                           final images =
                               entryImagesProvider.getForEntry(entry);
                           // 编号：今日模式 最新=最大；搜索模式按命中顺序
                           return _buildCard(
-                              context, entry, images, deck.length - index);
+                              context, entry, images, deck.length - realIndex);
                         },
                       ),
                     )
@@ -397,14 +529,25 @@ class _HomePageState extends State<HomePage> {
                         0,
                       ),
                     ),
+              ),
             ),
+          ),
 
             // 底部搜索框（卡片下方的空白处）
-            Positioned(
-              left: 28,
-              right: 28,
-              bottom: 28,
-              child: _buildSearchField(),
+            Positioned.fill(
+              child: AnimatedAlign(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOutCubic,
+                alignment: _isSearching ? Alignment.center : Alignment.bottomCenter,
+                child: AnimatedPadding(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOutCubic,
+                  padding: _isSearching
+                      ? const EdgeInsets.symmetric(horizontal: 16.0)
+                      : const EdgeInsets.only(left: 28.0, right: 28.0, bottom: 28.0),
+                  child: _buildSearchField(),
+                ),
+              ),
             ),
           ],
         ),

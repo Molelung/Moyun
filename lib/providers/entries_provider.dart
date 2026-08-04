@@ -11,18 +11,56 @@ class EntriesProvider with ChangeNotifier {
   EntriesProvider._init();
 
   List<Entry> entries = List.empty(growable: true);
-
   Map<DateTime, List<Entry>> _entriesByDay = {};
 
   int _wordCount = 0;
   int get wordCount => _wordCount;
 
+  bool isLoading = false;
+  bool isAllLoaded = false;
+  int _offset = 0;
+  static const int _limit = 50;
+
   /// Load the provider's data from the app database
   Future<void> load() async {
-    entries = await EntryDao.getAll();
-    _calculateWordCount();
-    _calculateEntriesByDay();
+    isLoading = true;
     notifyListeners();
+
+    _offset = 0;
+    entries = await EntryDao.getPage(_limit, _offset);
+    isAllLoaded = entries.length < _limit;
+    
+    await _calculateWordCount();
+    _calculateEntriesByDay();
+    
+    isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> loadMore() async {
+    if (isLoading || isAllLoaded) return;
+    isLoading = true;
+    notifyListeners();
+
+    _offset += _limit;
+    final moreEntries = await EntryDao.getPage(_limit, _offset);
+    if (moreEntries.isEmpty) {
+      isAllLoaded = true;
+    } else {
+      entries.addAll(moreEntries);
+      if (moreEntries.length < _limit) {
+        isAllLoaded = true;
+      }
+      _calculateEntriesByDay();
+    }
+
+    isLoading = false;
+    notifyListeners();
+  }
+
+  Future<List<Entry>> search(String query) async {
+    if (query.trim().isEmpty) return [];
+    return await EntryDao.search(query.trim());
   }
 
   // CRUD operations
@@ -36,7 +74,7 @@ class EntriesProvider with ChangeNotifier {
     if (!skipUpdate) {
       // Reverse chronological order such that the most recent day is first
       entries.sort((a, b) => compareByTime(b.timeCreate, a.timeCreate));
-      _calculateWordCount();
+      await _calculateWordCount();
       _calculateEntriesByDay();
       notifyListeners();
     }
@@ -51,7 +89,7 @@ class EntriesProvider with ChangeNotifier {
     entries.sort((a, b) => compareByTime(b.timeCreate, a.timeCreate));
     await AppDatabase.instance.updateExternalDatabase();
 
-    _calculateWordCount();
+    await _calculateWordCount();
     _calculateEntriesByDay();
     notifyListeners();
   }
@@ -61,7 +99,7 @@ class EntriesProvider with ChangeNotifier {
     entries.removeWhere((x) => x.id == entry.id);
     await AppDatabase.instance.updateExternalDatabase();
 
-    _calculateWordCount();
+    await _calculateWordCount();
     _calculateEntriesByDay();
     notifyListeners();
   }
@@ -109,10 +147,11 @@ class EntriesProvider with ChangeNotifier {
     return entries.any((e) => e.timeCreate == timestamp);
   }
 
-  void _calculateWordCount() {
+  Future<void> _calculateWordCount() async {
     _wordCount = 0;
-    for (var entry in entries) {
-      _wordCount += wordsCount(entry.text);
+    final texts = await EntryDao.getAllTexts();
+    for (var text in texts) {
+      _wordCount += wordsCount(text);
     }
   }
 

@@ -6,6 +6,8 @@ import 'package:daily_you/device_info_service.dart';
 import 'package:daily_you/language_option.dart';
 import 'package:daily_you/widgets/settings_dropdown.dart';
 import 'package:daily_you/widgets/settings_icon_action.dart';
+import 'package:daily_you/widgets/paper_texture.dart';
+import 'package:daily_you/widgets/glass_action_button.dart';
 import 'package:flutter/material.dart';
 import 'package:daily_you/l10n/generated/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -27,12 +29,26 @@ class _LanguageSettingsState extends State<LanguageSettings> {
   @override
   Widget build(BuildContext context) {
     ConfigProvider configProvider = Provider.of<ConfigProvider>(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context)!.settingsLanguageTitle),
-        centerTitle: true,
-      ),
-      body: ListView(
+    return Stack(
+      children: [
+        const RicePaperBackground(),
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            title: Text(AppLocalizations.of(context)!.settingsLanguageTitle),
+            centerTitle: true,
+            leading: Center(
+              child: GlassActionButton(
+                icon: Icons.arrow_back_ios_new_rounded,
+                iconSize: 20,
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
           if (Platform.isAndroid &&
               DeviceInfoService().androidSdk != null &&
@@ -89,9 +105,11 @@ class _LanguageSettingsState extends State<LanguageSettings> {
                 )
               ],
             ),
-          )
+          ),
         ],
       ),
+      ),
+    ],
     );
   }
 }

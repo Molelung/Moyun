@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -33,6 +35,33 @@ class _TimelinePageState extends State<TimelinePage> {
   void initState() {
     super.initState();
     _buildGroups();
+
+    itemPositionsListener.itemPositions.addListener(_scrollListener);
+  }
+
+  void _scrollListener() {
+    final positions = itemPositionsListener.itemPositions.value;
+    if (positions.isNotEmpty) {
+      final last = positions.last.index;
+      if (last >= _groups.length - 2) {
+        final provider = Provider.of<EntriesProvider>(context, listen: false);
+        if (!provider.isLoading && !provider.isAllLoaded) {
+          provider.loadMore().then((_) {
+            if (mounted) {
+              setState(() {
+                _buildGroups();
+              });
+            }
+          });
+        }
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    itemPositionsListener.itemPositions.removeListener(_scrollListener);
+    super.dispose();
   }
 
   void _buildGroups() {

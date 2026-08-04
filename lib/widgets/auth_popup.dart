@@ -15,6 +15,7 @@ class AuthPopup extends StatefulWidget {
   final bool showBiometrics;
   final bool dismissable;
   final VoidCallback? onSuccess;
+  final String? targetConfigKey;
 
   const AuthPopup({
     super.key,
@@ -23,6 +24,7 @@ class AuthPopup extends StatefulWidget {
     required this.showBiometrics,
     required this.dismissable,
     this.onSuccess,
+    this.targetConfigKey,
   });
 
   @override
@@ -66,12 +68,13 @@ class _AuthPopupState extends State<AuthPopup> {
   }
 
   Future<void> savePassword(String password) async {
-    await ConfigProvider.instance
-        .set(ConfigKey.passwordHash, await _hashPassword(password));
+    final key = widget.targetConfigKey ?? ConfigKey.passwordHash;
+    await ConfigProvider.instance.set(key, await _hashPassword(password));
   }
 
   Future<bool> validatePassword(String password) async {
-    final storedHash = ConfigProvider.instance.get(ConfigKey.passwordHash);
+    final key = widget.targetConfigKey ?? ConfigKey.passwordHash;
+    final storedHash = ConfigProvider.instance.get(key);
     if (storedHash == null) return false;
     return storedHash == await _hashPassword(password);
   }

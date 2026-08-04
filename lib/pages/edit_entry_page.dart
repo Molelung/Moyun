@@ -11,6 +11,7 @@ import 'package:daily_you/pages/full_screen_text_editor_page.dart';
 import 'package:daily_you/widgets/edit_toolbar.dart';
 import 'package:daily_you/widgets/entry_image_editable_list.dart';
 import 'package:daily_you/widgets/paper_texture.dart';
+import 'package:daily_you/widgets/glass_action_button.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:daily_you/l10n/generated/app_localizations.dart';
@@ -209,18 +210,27 @@ class _AddEditEntryPageState extends State<AddEditEntryPage>
                   appBar: AppBar(
                       backgroundColor: Colors.transparent,
                       surfaceTintColor: Colors.transparent,
-                      leading: BackButton(
-                        onPressed: () {
-                          // Pop edit page
-                          Navigator.of(context).pop();
-                          if (!_creatingNewEntry &&
-                              Navigator.of(context).canPop()) {
-                            // Pop view page
+                      leading: Center(
+                        child: GlassActionButton(
+                          icon: Icons.arrow_back_ios_new_rounded,
+                          iconSize: 20,
+                          onTap: () {
+                            // Pop edit page
                             Navigator.of(context).pop();
-                          }
-                        },
+                            if (!_creatingNewEntry &&
+                                Navigator.of(context).canPop()) {
+                              // Pop view page
+                              Navigator.of(context).pop();
+                            }
+                          },
+                        ),
                       ),
-                      actions: [_deleteButton(), _saveButton()]),
+                      actions: [
+                        Center(child: _deleteButton()),
+                        const SizedBox(width: 8),
+                        Center(child: _saveButton()),
+                        const SizedBox(width: 16),
+                      ]),
                   body: Column(
                     children: [
                       Expanded(
@@ -406,14 +416,14 @@ class _AddEditEntryPageState extends State<AddEditEntryPage>
     );
   }
 
-  Widget _deleteButton() => IconButton(
-        icon: const Icon(Icons.delete),
-        onPressed: () => _showDeleteEntryPopup(),
+  Widget _deleteButton() => GlassActionButton(
+        icon: Icons.delete_rounded,
+        onTap: _showDeleteEntryPopup,
       );
 
-  Widget _saveButton() => IconButton(
-        icon: const Icon(Icons.check_rounded),
-        onPressed: () => Navigator.of(context).pop(),
+  Widget _saveButton() => GlassActionButton(
+        icon: Icons.check_rounded,
+        onTap: () => Navigator.of(context).pop(),
       );
 
   Future<void> _chooseDate() async {

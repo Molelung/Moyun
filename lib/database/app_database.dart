@@ -12,6 +12,8 @@ import 'package:daily_you/utils/locale_helper.dart';
 import 'package:easy_debounce/easy_debounce.dart';
 import 'package:logging/logging.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:encrypt/encrypt.dart' as enc;
+import 'dart:typed_data';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -195,6 +197,51 @@ class AppDatabase {
     await ConfigProvider.instance.set(ConfigKey.useExternalDb, false);
   }
 
+  Uint8List? _encryptBytes(Uint8List data) {
+    if (ConfigProvider.instance.get(ConfigKey.encryptBackup) != true) return data;
+    final pwdHash = ConfigProvider.instance.get(ConfigKey.backupPassword) as String?;
+    if (pwdHash == null || pwdHash.isEmpty) return data;
+
+    // Use first 32 chars of the hex hash as the 32-byte AES key
+    final keyStr = pwdHash.length >= 32 ? pwdHash.substring(0, 32) : pwdHash.padRight(32, '0');
+    final key = enc.Key.fromUtf8(keyStr);
+    final iv = enc.IV.fromSecureRandom(16);
+    final encrypter = enc.Encrypter(enc.AES(key));
+
+    final encrypted = encrypter.encryptBytes(data, iv: iv);
+    
+    // Prepend IV to the encrypted data
+    final result = BytesBuilder();
+    result.add(iv.bytes);
+    result.add(encrypted.bytes);
+    return result.toBytes();
+  }
+
+  Uint8List? _decryptBytes(Uint8List data) {
+    if (ConfigProvider.instance.get(ConfigKey.encryptBackup) != true) return data;
+    final pwdHash = ConfigProvider.instance.get(ConfigKey.backupPassword) as String?;
+    if (pwdHash == null || pwdHash.isEmpty) return data;
+
+    // The data must be at least 16 bytes for the IV
+    if (data.length < 16) return data;
+
+    final keyStr = pwdHash.length >= 32 ? pwdHash.substring(0, 32) : pwdHash.padRight(32, '0');
+    final key = enc.Key.fromUtf8(keyStr);
+    
+    final ivBytes = data.sublist(0, 16);
+    final encryptedBytes = data.sublist(16);
+    final iv = enc.IV(ivBytes);
+    final encrypter = enc.Encrypter(enc.AES(key));
+
+    try {
+      final decrypted = encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: iv);
+      return Uint8List.fromList(decrypted);
+    } catch (_) {
+      // If decryption fails, return null to indicate failure
+      return null;
+    }
+  }
+
   /// Overwrite the external database with local changes
   /// If an external database is not in use, no action is taken
   Future<void> updateExternalDatabase() async {
@@ -216,7 +263,11 @@ class AppDatabase {
         var bytes =
             await FileLayer.getFileBytes(tmpExport, useExternalPath: false);
         if (bytes == null) return;
-        await FileLayer.writeFileBytes(getExternalPath(), bytes,
+        
+        final encryptedBytes = _encryptBytes(bytes);
+        if (encryptedBytes == null) return;
+
+        await FileLayer.writeFileBytes(getExternalPath(), encryptedBytes,
             name: "daily_you.db");
 
         await FileLayer.deleteFile(tmpExport, useExternalPath: false);
@@ -244,6 +295,12 @@ class AppDatabase {
       var externalBytes =
           await FileLayer.getFileBytes(getExternalPath(), name: "daily_you.db");
       if (externalBytes == null) return false;
+      
+      final decryptedBytes = _decryptBytes(externalBytes);
+      if (decryptedBytes == null) {
+        _logger.severe('Failed to decrypt external database backup.');
+        return false;
+      }
 
       // Create temporary internal DB
       final temporaryInternalPath =
@@ -251,7 +308,7 @@ class AppDatabase {
       final internalDirectory = dirname(temporaryInternalPath);
       final temporaryFileName = basename(temporaryInternalPath);
       await FileLayer.createFile(
-          internalDirectory, temporaryFileName, externalBytes,
+          internalDirectory, temporaryFileName, decryptedBytes,
           useExternalPath: false);
 
       // Check that the new database is valid

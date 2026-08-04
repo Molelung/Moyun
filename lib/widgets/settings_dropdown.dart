@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:daily_you/widgets/glass_container.dart';
 
 class SettingsDropdown<T> extends StatelessWidget {
   final String title;
@@ -33,19 +34,23 @@ class SettingsDropdown<T> extends StatelessWidget {
         onChanged: onChanged);
 
     if (leadingIcon != null) {
-      return ListTile(
-        leading: Icon(leadingIcon),
-        title: Text(
-          title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+      return GlassContainer(
+        margin: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+        child: ListTile(
+          leading: Icon(leadingIcon),
+          title: Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+          trailing: dropdown,
         ),
-        trailing: dropdown,
       );
     }
 
-    return Padding(
-      padding:
-          const EdgeInsets.only(top: 8.0, bottom: 8.0, left: 16.0, right: 16.0),
+    return GlassContainer(
+      margin: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+      padding: const EdgeInsets.only(top: 8.0, bottom: 8.0, left: 16.0, right: 16.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

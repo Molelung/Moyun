@@ -9,6 +9,7 @@ import 'package:daily_you/providers/entries_provider.dart';
 import 'package:daily_you/providers/entry_images_provider.dart';
 import 'package:daily_you/widgets/local_image_loader.dart';
 import 'package:daily_you/widgets/paper_texture.dart';
+import 'package:daily_you/widgets/glass_action_button.dart';
 
 /// 漫游模式：界面与首页一致，但可以无限左滑/右滑，
 /// 每次滑动随机展示某一天的日记。
@@ -94,10 +95,9 @@ class _WanderPageState extends State<WanderPage> {
           Positioned(
             top: MediaQuery.of(context).padding.top + 12,
             left: 16,
-            child: IconButton(
-              icon: Icon(Icons.close_rounded,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
-              onPressed: () => Navigator.of(context).pop(),
+            child: GlassActionButton(
+              icon: Icons.close_rounded,
+              onTap: () => Navigator.of(context).pop(),
             ),
           ),
         ],

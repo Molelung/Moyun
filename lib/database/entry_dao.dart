@@ -9,6 +9,34 @@ class EntryDao {
     return result.map((json) => Entry.fromJson(json)).toList();
   }
 
+  static Future<List<Entry>> getPage(int limit, int offset) async {
+    final result = await AppDatabase.instance.database!.query(
+      entriesTable,
+      orderBy: '${EntryFields.timeCreate} DESC',
+      limit: limit,
+      offset: offset,
+    );
+    return result.map((json) => Entry.fromJson(json)).toList();
+  }
+
+  static Future<List<Entry>> search(String query) async {
+    final result = await AppDatabase.instance.database!.query(
+      entriesTable,
+      where: '${EntryFields.text} LIKE ? OR ${EntryFields.title} LIKE ?',
+      whereArgs: ['%$query%', '%$query%'],
+      orderBy: '${EntryFields.timeCreate} DESC',
+    );
+    return result.map((json) => Entry.fromJson(json)).toList();
+  }
+
+  static Future<List<String>> getAllTexts() async {
+    final result = await AppDatabase.instance.database!.query(
+      entriesTable,
+      columns: [EntryFields.text],
+    );
+    return result.map((json) => json[EntryFields.text] as String).toList();
+  }
+
   static Future<Entry?> get(int id) async {
     final maps = await AppDatabase.instance.database!.query(
       entriesTable,

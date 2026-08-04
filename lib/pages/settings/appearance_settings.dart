@@ -1,9 +1,11 @@
-﻿import 'package:daily_you/config_provider.dart';
+import 'package:daily_you/config_provider.dart';
 import 'package:daily_you/time_manager.dart';
 import 'package:daily_you/widgets/color_picker_dialog.dart';
 import 'package:daily_you/widgets/settings_dropdown.dart';
 import 'package:daily_you/widgets/settings_icon_action.dart';
 import 'package:daily_you/widgets/settings_toggle.dart';
+import 'package:daily_you/widgets/paper_texture.dart';
+import 'package:daily_you/widgets/glass_action_button.dart';
 import 'package:flutter/material.dart';
 import 'package:daily_you/l10n/generated/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -63,12 +65,26 @@ class _AppearanceSettingsPageState extends State<AppearanceSettings> {
     final themeProvider = Provider.of<ThemeModeProvider>(context);
     final configProvider = Provider.of<ConfigProvider>(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context)!.settingsAppearanceTitle),
-        centerTitle: true,
-      ),
-      body: ListView(
+    return Stack(
+      children: [
+        const RicePaperBackground(),
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            title: Text(AppLocalizations.of(context)!.settingsAppearanceTitle),
+            centerTitle: true,
+            leading: Center(
+              child: GlassActionButton(
+                icon: Icons.arrow_back_ios_new_rounded,
+                iconSize: 20,
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
           SettingsDropdown<String>(
               title: AppLocalizations.of(context)!.settingsTheme,
@@ -172,8 +188,10 @@ class _AppearanceSettingsPageState extends State<AppearanceSettings> {
                   await configProvider.set(ConfigKey.calendarSystem, newValue);
                 }),
           ),
-        ],
+          ],
+        ),
       ),
+    ],
     );
   }
 }

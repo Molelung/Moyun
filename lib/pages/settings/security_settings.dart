@@ -6,6 +6,8 @@ import 'package:daily_you/widgets/auth_popup.dart';
 import 'package:daily_you/widgets/settings_icon_action.dart';
 import 'package:daily_you/widgets/settings_toggle.dart';
 import 'package:daily_you/widgets/settings_dropdown.dart';
+import 'package:daily_you/widgets/paper_texture.dart';
+import 'package:daily_you/widgets/glass_action_button.dart';
 import 'package:flutter/material.dart';
 import 'package:daily_you/l10n/generated/app_localizations.dart';
 import 'package:flutter/services.dart';
@@ -521,12 +523,26 @@ class SecuritySettingsPageState extends State<SecuritySettings> {
     final configProvider = Provider.of<ConfigProvider>(context);
     final LocalAuthentication auth = LocalAuthentication();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context)!.settingsSecurityTitle),
-        centerTitle: true,
-      ),
-      body: ListView(
+    return Stack(
+      children: [
+        const RicePaperBackground(),
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            title: Text(AppLocalizations.of(context)!.settingsSecurityTitle),
+            centerTitle: true,
+            leading: Center(
+              child: GlassActionButton(
+                icon: Icons.arrow_back_ios_new_rounded,
+                iconSize: 20,
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
           SettingsToggle(
               title:
@@ -720,6 +736,50 @@ class SecuritySettingsPageState extends State<SecuritySettings> {
             padding: const EdgeInsets.only(left: 8.0, right: 8.0),
             child: Divider(),
           ),
+          SettingsToggle(
+            title: "备份加密",
+            settingsKey: ConfigKey.encryptBackup,
+            onChanged: (value) async {
+              if (value) {
+                // Turn on encryption, prompt for password
+                bool setPassword = false;
+                await showDialog(
+                    context: context,
+                    builder: (context) => AuthPopup(
+                          mode: AuthPopupMode.setPassword,
+                          title: "设置备份密码",
+                          showBiometrics: false,
+                          dismissable: true,
+                          targetConfigKey: ConfigKey.backupPassword,
+                          onSuccess: () {
+                            setPassword = true;
+                          },
+                        ));
+                await configProvider.set(ConfigKey.encryptBackup, setPassword);
+              } else {
+                // Disable encryption
+                await configProvider.set(ConfigKey.encryptBackup, false);
+                await configProvider.set(ConfigKey.backupPassword, "");
+              }
+            },
+          ),
+          if (configProvider.get(ConfigKey.encryptBackup))
+            SettingsIconAction(
+              title: "修改备份密码",
+              icon: const Icon(Icons.edit_rounded),
+              onPressed: () async {
+                await showDialog(
+                    context: context,
+                    builder: (context) => AuthPopup(
+                          mode: AuthPopupMode.changePassword,
+                          title: "修改备份密码",
+                          showBiometrics: false,
+                          dismissable: true,
+                          targetConfigKey: ConfigKey.backupPassword,
+                          onSuccess: () {},
+                        ));
+              },
+            ),
           SettingsIconAction(
               title: AppLocalizations.of(context)!.settingsBackup,
               icon: Icon(Icons.backup_rounded),
@@ -745,8 +805,10 @@ class SecuritySettingsPageState extends State<SecuritySettings> {
               onPressed: () async {
                 await _showExportSelectionPopup();
               }),
-        ],
+          ],
+        ),
       ),
+    ],
     );
   }
 }

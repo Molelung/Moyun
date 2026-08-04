@@ -39,10 +39,13 @@ class ConfigKey {
   static const String imageQualityLevel = "imageQualityLevel";
   static const String overrideLanguage = "overrideLanguage";
   static const String calendarSystem = "calendarSystem";
+  static const String hasPromptedAutoBackup = "hasPromptedAutoBackup";
   // Secure Configuration Values
   static const String requirePassword = "requirePassword";
   static const String biometricUnlock = "biometricUnlock";
   static const String passwordHash = "passwordHash";
+  static const String encryptBackup = "encryptBackup";
+  static const String backupPassword = "backupPassword";
 }
 
 class ImageQuality {
@@ -85,15 +88,18 @@ class ConfigProvider with ChangeNotifier {
     ConfigKey.onThisDayNotifications: false,
     ConfigKey.onThisDayNotificationHour: 12,
     ConfigKey.onThisDayNotificationMinute: 0,
-    ConfigKey.imageQualityLevel: ImageQuality.medium,
+    ConfigKey.imageQualityLevel: ImageQuality.noCompression,
     ConfigKey.overrideLanguage: null,
     ConfigKey.calendarSystem: 'system',
+    ConfigKey.hasPromptedAutoBackup: false,
   };
 
   static const Map<String, dynamic> _secureConfig = {
     ConfigKey.requirePassword: false,
     ConfigKey.biometricUnlock: false,
-    ConfigKey.passwordHash: ""
+    ConfigKey.passwordHash: "",
+    ConfigKey.encryptBackup: false,
+    ConfigKey.backupPassword: ""
   };
 
   bool _isSecureKey(String key) => _secureConfig.containsKey(key);

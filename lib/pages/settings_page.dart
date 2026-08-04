@@ -5,6 +5,7 @@ import 'package:daily_you/pages/settings/language_settings.dart';
 import 'package:daily_you/pages/settings/notification_settings.dart';
 import 'package:daily_you/pages/settings/security_settings.dart';
 import 'package:daily_you/widgets/glass_container.dart';
+import 'package:daily_you/widgets/glass_action_button.dart';
 import 'package:daily_you/widgets/paper_texture.dart';
 import 'package:flutter/material.dart';
 import 'package:daily_you/l10n/generated/app_localizations.dart';
@@ -20,23 +21,33 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      body: Stack(
-        children: [
-          const RicePaperBackground(),
-          SafeArea(
+    return Stack(
+      children: [
+        const RicePaperBackground(),
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            title: Text(
+              AppLocalizations.of(context)!.pageSettingsTitle,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            centerTitle: true,
+            leading: Center(
+              child: GlassActionButton(
+                icon: Icons.arrow_back_ios_new_rounded,
+                iconSize: 20,
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ),
+          body: SafeArea(
             child: Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    AppLocalizations.of(context)!.pageSettingsTitle,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
                 Expanded(
                   child: ListView(
                     padding:
@@ -84,8 +95,8 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
