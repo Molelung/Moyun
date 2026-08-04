@@ -104,12 +104,109 @@ class AppDatabase {
   }
 
   Future<void> open() async {
+    // 防丢保护：sqflite 可写模式打开时，Android 默认 DatabaseErrorHandler
+    // 会在检测到损坏时直接删除数据库文件。这里先用只读校验（readOnly 模式
+    // 不会删除文件）探测内部库，损坏则先从外部备份恢复，绝不直接删库。
+    if (await File(_internalPath!).exists() &&
+        !await _validateSqliteDatabase(_internalPath!)) {
+      _logger.severe(
+          'Internal database corrupted on open. Attempting recovery.');
+      final recovered = await _restoreFromExternalBackup();
+      if (!recovered) {
+        // 外部备份不可用：保留损坏文件（改名），避免被 sqflite 删掉，
+        // 同时让 onCreate 重建一个可用库。
+        await _preserveCorruptedDatabase();
+      }
+    }
+
     _database = await openDatabase(_internalPath!,
         version: 6, onCreate: _createDatabase, onUpgrade: _onUpgrade);
 
     await EntriesProvider.instance.load();
     await EntryImagesProvider.instance.load();
+  }
 
+  /// 把损坏的内部库改名为 .corrupt 保留（绝不直接删除），以便数据抢救。
+  Future<void> _preserveCorruptedDatabase() async {
+    try {
+      final corruptPath =
+          '${_internalPath!}.corrupt_${DateTime.now().millisecondsSinceEpoch}';
+      if (await File(_internalPath!).exists()) {
+        await File(_internalPath!).rename(corruptPath);
+      }
+      // 连带清理 WAL/SHM，避免残留文件干扰后续新库
+      for (final suffix in ['-wal', '-shm']) {
+        final leftover = File('$_internalPath$suffix');
+        if (await leftover.exists()) {
+          try {
+            await leftover.delete();
+          } catch (_) {}
+        }
+      }
+      _logger.warning('Corrupted database preserved at $corruptPath');
+    } catch (e) {
+      _logger.warning('Failed to preserve corrupted database: $e');
+    }
+  }
+
+  /// 从外部备份恢复内部库。先校验外部备份有效，覆盖前保留现有内部文件。
+  /// 返回是否恢复成功。
+  Future<bool> _restoreFromExternalBackup() async {
+    try {
+      if (!usingExternalLocation() ||
+          !await hasExternalLocationPermission()) {
+        return false;
+      }
+      if (!await FileLayer.exists(
+          getExternalPath(), name: "daily_you.db")) {
+        return false;
+      }
+      var externalBytes = await FileLayer.getFileBytes(
+          getExternalPath(), name: "daily_you.db");
+      if (externalBytes == null) return false;
+      final decryptedBytes = _decryptBytes(externalBytes);
+      if (decryptedBytes == null) {
+        _logger.severe('Failed to decrypt external database backup.');
+        return false;
+      }
+
+      final temporaryInternalPath =
+          "${_internalPath!}.recover_${DateTime.now().millisecondsSinceEpoch}.tmp";
+      final internalDirectory = dirname(temporaryInternalPath);
+      final temporaryFileName = basename(temporaryInternalPath);
+      await FileLayer.createFile(internalDirectory, temporaryFileName,
+          decryptedBytes,
+          useExternalPath: false);
+      if (!await _validateSqliteDatabase(temporaryInternalPath)) {
+        await FileLayer.deleteFile(temporaryInternalPath,
+            useExternalPath: false);
+        _logger.warning(
+            'External backup failed validation, restore aborted');
+        return false;
+      }
+
+      // 覆盖前保留现有内部文件（损坏的也保留）
+      if (await File(_internalPath!).exists()) {
+        await _preserveCorruptedDatabase();
+      }
+      await File(temporaryInternalPath).rename(_internalPath!);
+
+      // 清理可能残留的 WAL/SHM 文件，避免与新库错配
+      for (final suffix in ['-wal', '-shm']) {
+        final leftover = File('$_internalPath$suffix');
+        if (await leftover.exists()) {
+          try {
+            await leftover.delete();
+          } catch (_) {}
+        }
+      }
+
+      _logger.info('Database restored from external backup');
+      return true;
+    } catch (e) {
+      _logger.warning('External backup restore failed: $e');
+      return false;
+    }
   }
 
   Future<void> close() async {
@@ -165,8 +262,8 @@ class AppDatabase {
             .set(ConfigKey.externalDbUri, selectedDirectory);
         await ConfigProvider.instance.set(ConfigKey.useExternalDb, true);
 
-        // Sync with external folder
-        databaseUpdated = await _syncWithExternalDatabase(forceOverwrite: true);
+        // Sync with external folder（安全方向：内部完好时只导出，不反向覆盖）
+        databaseUpdated = await _syncWithExternalDatabase();
       }
     } catch (_) {
       // Do nothing
@@ -268,6 +365,22 @@ class AppDatabase {
     final db = database;
     if (db == null) return;
     try {
+      // 清理上次异常残留的导出文件，避免内部目录堆积
+      final internalDir = dirname(_internalPath!);
+      try {
+        final dir = Directory(internalDir);
+        if (await dir.exists()) {
+          await for (final f in dir.list()) {
+            if (f is File &&
+                f.path.startsWith('$_internalPath.export_')) {
+              try {
+                await f.delete();
+              } catch (_) {}
+            }
+          }
+        }
+      } catch (_) {}
+
       // Create temporary export copy
       final tmpExport =
           "${_internalPath!}.export_${DateTime.now().millisecondsSinceEpoch}";
@@ -297,19 +410,36 @@ class AppDatabase {
             externalDbUri, "daily_you.db", encryptedBytes);
       }
 
+      // 回读校验：确认备份真的写成功且完整，防止半写/空备份污染外部文件。
+      // （半写的外部备份曾是内部库被错误覆盖的隐患来源）
+      final verifyBytes =
+          await FileLayer.getFileBytes(externalDbUri, name: "daily_you.db");
+      if (verifyBytes == null || verifyBytes.length != encryptedBytes.length) {
+        _logger.severe(
+            'External backup verification failed: written bytes do not match');
+      }
+
       await FileLayer.deleteFile(tmpExport, useExternalPath: false);
     } catch (e) {
       _logger.warning('External database backup failed: $e');
     }
   }
 
-  /// Pull in remote changes if the external database is newer or if forceOverwrite is set
+  /// 数据同步策略（防丢优先）：
+  /// - 内部库完好时，绝不用外部备份覆盖内部（外部 mtime 更新不代表内容更好）
+  /// - 仅当内部库缺失或损坏时才从外部备份恢复
+  /// - 外部备份不存在时，把内部库导出到外部（首次备份）
   Future<bool> _syncWithExternalDatabase({bool forceOverwrite = false}) async {
-    // Check if external database exists
     var externalExists =
         await FileLayer.exists(getExternalPath(), name: "daily_you.db");
 
+    final internalExists = await File(_internalPath!).exists();
+    final internalHealthy = internalExists &&
+        await _validateSqliteDatabase(_internalPath!);
+
     if (!externalExists) {
+      // 外部无备份 → 把内部备份过去（首次备份）。内部损坏时绝不导出坏库。
+      if (!internalExists || !internalHealthy) return true;
       var bytes =
           await FileLayer.getFileBytes(_internalPath!, useExternalPath: false);
       if (bytes == null) return false;
@@ -318,58 +448,15 @@ class AppDatabase {
       var externalDbPath =
           await FileLayer.createFile(getExternalPath(), "daily_you.db", bytes);
       return externalDbPath != null;
-    } else if (forceOverwrite || await _isExternalDatabaseNewer()) {
-      // Overwrite internal DB
-      var externalBytes =
-          await FileLayer.getFileBytes(getExternalPath(), name: "daily_you.db");
-      if (externalBytes == null) return false;
-      
-      final decryptedBytes = _decryptBytes(externalBytes);
-      if (decryptedBytes == null) {
-        _logger.severe('Failed to decrypt external database backup.');
-        return false;
-      }
-
-      // Create temporary internal DB
-      final temporaryInternalPath =
-          "${_internalPath!}.${DateTime.now().millisecondsSinceEpoch}.tmp";
-      final internalDirectory = dirname(temporaryInternalPath);
-      final temporaryFileName = basename(temporaryInternalPath);
-      await FileLayer.createFile(
-          internalDirectory, temporaryFileName, decryptedBytes,
-          useExternalPath: false);
-
-      // Check that the new database is valid
-      if (await FileLayer.exists(internalDirectory,
-              name: temporaryFileName, useExternalPath: false) &&
-          await _validateSqliteDatabase(temporaryInternalPath)) {
-        // Replace internal database
-        await FileLayer.renameFile(temporaryInternalPath, _internalPath!,
-            useExternalPath: false);
-      } else {
-        // Delete temporary database
-        await FileLayer.deleteFile(temporaryInternalPath,
-            useExternalPath: false);
-        return false;
-      }
     }
+
+    // 外部存在：仅当内部缺失/损坏（或用户强制）时用外部恢复内部
+    if (!internalExists || !internalHealthy || forceOverwrite) {
+      final restored = await _restoreFromExternalBackup();
+      return restored || internalExists || !internalHealthy;
+    }
+
     return true;
-  }
-
-  /// Return whether the external database is newer
-  Future<bool> _isExternalDatabaseNewer() async {
-    // Get internal time
-    var internalModifiedTime = await FileLayer.getFileModifiedTime(
-            _internalPath!,
-            useExternalPath: false) ??
-        DateTime.now();
-
-    var externalModifiedTime = await FileLayer.getFileModifiedTime(
-            getExternalPath(),
-            name: "daily_you.db") ??
-        internalModifiedTime;
-
-    return externalModifiedTime.isAfter(internalModifiedTime);
   }
 
   // SQLite Database Actions
