@@ -52,19 +52,19 @@ class _AboutSettingsState extends State<AboutSettings> {
         children: [
           SettingsIconAction(
               title: AppLocalizations.of(context)!.settingsSourceCode,
-              hint: "github.com/Demizo/Daily_You",
+              hint: "github.com/Molelung/Moyun",
               icon: Icon(Icons.open_in_new_rounded),
               onPressed: () async {
-                await launchUrl(Uri.https("github.com", "/Demizo/Daily_You"),
+                await launchUrl(Uri.https("github.com", "/Molelung/Moyun"),
                     mode: LaunchMode.externalApplication);
               }),
           SettingsIconAction(
             title: AppLocalizations.of(context)!.settingsHelpTranslate,
-            hint: "hosted.weblate.org/projects/daily-you",
+            hint: "github.com/Molelung/Moyun/issues",
             icon: Icon(Icons.open_in_new_rounded),
             onPressed: () async {
               await launchUrl(
-                  Uri.https("hosted.weblate.org", "/projects/daily-you"),
+                  Uri.https("github.com", "/Molelung/Moyun/issues"),
                   mode: LaunchMode.externalApplication);
             },
           ),
@@ -75,7 +75,7 @@ class _AboutSettingsState extends State<AboutSettings> {
               onPressed: () async {
                 await launchUrl(
                     Uri.https("github.com",
-                        "/Demizo/Daily_You/blob/master/LICENSE.txt"),
+                        "/Molelung/Moyun/blob/main/LICENSE.txt"),
                     mode: LaunchMode.externalApplication);
               }),
           GestureDetector(
@@ -85,7 +85,7 @@ class _AboutSettingsState extends State<AboutSettings> {
                 icon: Icon(Icons.open_in_new_rounded),
                 onPressed: () async {
                   await launchUrl(
-                      Uri.https("github.com", "/Demizo/Daily_You/releases"),
+                      Uri.https("github.com", "/Molelung/Moyun/releases"),
                       mode: LaunchMode.externalApplication);
                 }),
             onTap: () async {

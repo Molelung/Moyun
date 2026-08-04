@@ -1,36 +1,40 @@
 import 'package:daily_you/models/entry.dart';
 import 'package:flutter/material.dart';
 
-/// Extracts frequent keywords from journal entries.
+/// 从日记中提取高频关键词。
 ///
-/// Latin words are matched whole (lowercased, common stop words removed).
-/// Chinese text is segmented into character bigrams, which approximates
-/// word boundaries without a full segmentation dictionary.
+/// 英文按单词切分（小写、去停用词）；中文按双字 bigram 近似分词。
+/// 额外用「文档频率」过滤：出现在绝大多数日记里的词属于常用词，
+/// 不构成关键词，直接剔除。
 Map<String, int> extractKeywords(
   Iterable<Entry> entries, {
   int limit = 40,
 }) {
   final counts = <String, int>{};
+  final docFrequency = <String, int>{};
 
-  void add(String word, int weight) {
-    counts.update(word, (value) => value + weight, ifAbsent: () => weight);
+  void add(String word) {
+    counts.update(word, (value) => value + 1, ifAbsent: () => 1);
   }
 
-  for (final entry in entries) {
-    final text = entry.text;
+  final all = entries.where((e) => e.text.trim().isNotEmpty).toList();
+  if (all.isEmpty) return const {};
 
-    // Latin words.
+  for (final entry in all) {
+    final text = entry.text;
+    final seen = <String>{};
+
+    // 英文单词
     for (final match in RegExp(r'[A-Za-z]+').allMatches(text)) {
       final word = match.group(0)!.toLowerCase();
-      if (word.length < 2 || _englishStopWords.contains(word)) continue;
-      add(word, 1);
+      if (word.length < 3 || _englishStopWords.contains(word)) continue;
+      add(word);
+      seen.add(word);
     }
 
-    // Chinese character bigrams. A bigram is kept when both characters are
-    // CJK and neither is a common function character.
-    final cjkRuns = RegExp(r'[\u3400-\u9FFF\uF900-\uFAFF]+')
-        .allMatches(text)
-        .toList();
+    // 中文双字 bigram：两端都非停用字、且不含数字/符号
+    final cjkRuns =
+        RegExp(r'[\u3400-\u9FFF\uF900-\uFAFF]+').allMatches(text).toList();
     for (final run in cjkRuns) {
       final chars = run.group(0)!.characters;
       for (var i = 0; i + 1 < chars.length; i++) {
@@ -40,13 +44,25 @@ Map<String, int> extractKeywords(
             _chineseStopChars.contains(second)) {
           continue;
         }
-        add('$first$second', 1);
+        final bigram = '$first$second';
+        add(bigram);
+        seen.add(bigram);
       }
+    }
+
+    // 记录文档频率
+    for (final word in seen) {
+      docFrequency.update(word, (v) => v + 1, ifAbsent: () => 1);
     }
   }
 
-  final sorted = counts.entries.toList()
+  // 剔除出现在超过半数日记中的常用词
+  final threshold = (all.length / 2).ceil();
+  final sorted = counts.entries
+      .where((e) => (docFrequency[e.key] ?? 0) < threshold)
+      .toList()
     ..sort((a, b) => b.value.compareTo(a.value));
+
   return {
     for (final entry in sorted.take(limit)) entry.key: entry.value,
   };
@@ -61,7 +77,10 @@ const _englishStopWords = {
   'been', 'before', 'being', 'more', 'most', 'some', 'such', 'than',
   'there', 'these', 'those', 'through', 'very', 'were', 'would', 'make',
   'made', 'like', 'just', 'because', 'could', 'should', 'also', 'over',
-  'back', 'even', 'still', 'really', 'today', 'time', 'things',
+  'back', 'even', 'still', 'really', 'today', 'time', 'things', 'every',
+  'much', 'many', 'then', 'here',
 };
 
-const _chineseStopChars = '的了是我在有和就不人都一这那也个上为很到说要去会好么你他她它小大中学出过年月日天新旧美还好';
+const _chineseStopChars =
+    '的了是我在有和就不人都一这那也个上为很到说要去会好么你他她它小大中学出过年月日天新旧美还好又再'
+    '与或但而于之其们把被让给向对从到里中上下左右前后内外面子点来去能会可要正再已将却并';

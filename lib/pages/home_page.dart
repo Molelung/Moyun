@@ -3,13 +3,13 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:daily_you/l10n/generated/app_localizations.dart';
 import 'package:daily_you/models/entry.dart';
 import 'package:daily_you/models/image.dart';
 import 'package:daily_you/providers/entries_provider.dart';
 import 'package:daily_you/providers/entry_images_provider.dart';
 import 'package:daily_you/widgets/glass_container.dart';
 import 'package:daily_you/widgets/glass_action_button.dart';
+import 'package:daily_you/app_text.dart';
 import 'package:daily_you/config_provider.dart';
 import 'package:daily_you/database/app_database.dart';
 import 'package:easy_debounce/easy_debounce.dart';
@@ -55,6 +55,15 @@ String _toFinancialNumber(int num) {
 }
 
 class _HomePageState extends State<HomePage> {
+  // 布局常量：卡片高度占屏比、缩略图尺寸、单卡最多图片数
+  static const double _cardHeightFactor = 0.62;
+  static const double _cardMinHeight = 400;
+  static const double _cardMaxHeight = 600;
+  static const double _thumbSize = 110;
+  static const double _thumbWidth = 90;
+  static const int _maxCardImages = 4;
+  static const int _infiniteInitialPage = 10000;
+  static const double _pageViewportFraction = 0.88;
   PageController? _pageController;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -202,6 +211,39 @@ class _HomePageState extends State<HomePage> {
     ));
   }
 
+  /// 执行搜索并更新结果
+  Future<void> _runSearch(String rawQuery) async {
+    final query = rawQuery.trim();
+    if (!mounted) return;
+    if (query.isEmpty) {
+      setState(() {
+        _searchQuery = '';
+        _searchResults = null;
+        _isSearchLoading = false;
+      });
+      return;
+    }
+    setState(() => _isSearchLoading = true);
+    final entriesProvider =
+        Provider.of<EntriesProvider>(context, listen: false);
+    final results = await entriesProvider.search(query);
+    if (mounted) {
+      setState(() {
+        _searchQuery = query;
+        _searchResults = results;
+        _isSearchLoading = false;
+      });
+    }
+  }
+
+  /// 点击确认：立刻完成搜索并退回主界面展示结果
+  void _confirmSearch() {
+    EasyDebounce.cancel("home-search");
+    _searchFocusNode.unfocus();
+    _runSearch(_searchController.text);
+    setState(() => _isSearching = false);
+  }
+
 
 
   Widget _buildSearchField() {
@@ -217,33 +259,13 @@ class _HomePageState extends State<HomePage> {
           if (mounted) setState(() => _isSearchLoading = true);
           // 防抖：停止输入 250ms 后才重建结果
           EasyDebounce.debounce(
-              "home-search", const Duration(milliseconds: 250), () async {
-            final query = value.trim();
-            if (query.isEmpty) {
-              if (mounted) {
-                setState(() {
-                  _searchQuery = query;
-                  _searchResults = null;
-                  _isSearchLoading = false;
-                });
-              }
-              return;
-            }
-            final entriesProvider = Provider.of<EntriesProvider>(context, listen: false);
-            final results = await entriesProvider.search(query);
-            if (mounted) {
-              setState(() {
-                _searchQuery = query;
-                _searchResults = results;
-                _isSearchLoading = false;
-              });
-            }
-          });
+              "home-search", const Duration(milliseconds: 250),
+              () => _runSearch(value));
         },
         style: theme.textTheme.bodyMedium
             ?.copyWith(color: theme.colorScheme.onSurface),
         decoration: InputDecoration(
-          hintText: "寻觅往昔……",
+          hintText: AppText.searchHint,
           hintStyle: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
           ),
@@ -320,18 +342,18 @@ class _HomePageState extends State<HomePage> {
                 if (images.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   SizedBox(
-                    height: 110,
+                    height: _thumbSize,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        for (final image in images.take(4))
+                        for (final image in images.take(_maxCardImages))
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: SizedBox(
-                                width: 90,
-                                height: 110,
+                                width: _thumbWidth,
+                                height: _thumbSize,
                                 child: LocalImageLoader(
                                     imagePath: image.imgPath),
                               ),
@@ -375,8 +397,6 @@ class _HomePageState extends State<HomePage> {
     // 按时间倒序：最新在前
     todays.sort((a, b) => b.timeCreate.compareTo(a.timeCreate));
 
-    final l10n = AppLocalizations.of(context);
-
     // 搜索模式：命中所有日记；否则展示今日日记
     final List<Entry> deck;
     if (_searchQuery.trim().isNotEmpty) {
@@ -412,17 +432,18 @@ class _HomePageState extends State<HomePage> {
         ? entryImagesProvider.getForEntry(fallbackEntry)
         : <EntryImage>[];
 
-    final cardHeight =
-        (MediaQuery.of(context).size.height * 0.62).clamp(400.0, 600.0);
+    final cardHeight = (MediaQuery.of(context).size.height * _cardHeightFactor)
+        .clamp(_cardMinHeight, _cardMaxHeight);
 
     if (_pageController == null || _lastDeckLength != deck.length) {
       _lastDeckLength = deck.length;
-      int initial = 10000;
+      int initial = _infiniteInitialPage;
       if (deck.isNotEmpty) {
-        initial = 10000 - (10000 % deck.length);
+        initial = _infiniteInitialPage - (_infiniteInitialPage % deck.length);
       }
       _pageController?.dispose();
-      _pageController = PageController(initialPage: initial, viewportFraction: 0.88);
+      _pageController = PageController(
+          initialPage: initial, viewportFraction: _pageViewportFraction);
     }
 
     return Scaffold(
@@ -520,8 +541,7 @@ class _HomePageState extends State<HomePage> {
                         context,
                         fallbackEntry ??
                             Entry(
-                              text: l10n?.pageHomeTitle ??
-                                  "今日无事，唯有清风。",
+                              text: AppText.emptyDiary,
                               timeCreate: now,
                               timeModified: now,
                             ),
@@ -543,9 +563,21 @@ class _HomePageState extends State<HomePage> {
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeInOutCubic,
                   padding: _isSearching
-                      ? const EdgeInsets.symmetric(horizontal: 16.0)
+                      ? const EdgeInsets.symmetric(horizontal: 32.0)
                       : const EdgeInsets.only(left: 28.0, right: 28.0, bottom: 28.0),
-                  child: _buildSearchField(),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Expanded(child: _buildSearchField()),
+                      if (_isSearching) ...[
+                        const SizedBox(width: 10),
+                        GlassActionButton(
+                          icon: Icons.check_rounded,
+                          onTap: _confirmSearch,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ),

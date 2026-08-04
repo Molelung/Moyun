@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:daily_you/models/entry.dart';
 import 'package:daily_you/models/image.dart';
+import 'package:daily_you/app_text.dart';
 import 'package:daily_you/providers/entries_provider.dart';
 import 'package:daily_you/providers/entry_images_provider.dart';
 import 'package:daily_you/widgets/local_image_loader.dart';
@@ -55,7 +56,7 @@ class _WanderPageState extends State<WanderPage> {
   }
 
   Entry _emptyEntry() => Entry(
-        text: "今日无事，唯有清风。",
+        text: AppText.emptyDiary,
         timeCreate: DateTime.now(),
         timeModified: DateTime.now(),
       );
@@ -77,8 +78,8 @@ class _WanderPageState extends State<WanderPage> {
         children: [
           const RicePaperBackground(),
           SafeArea(
-            child: _deck.isEmpty
-                ? const Center(child: Text("暂无日记，先去写一篇吧"))
+            child            : _deck.isEmpty
+                ? const Center(child: Text(AppText.wanderEmpty))
                 : PageView.builder(
                     controller: _pageController,
                     onPageChanged: _onPageChanged,

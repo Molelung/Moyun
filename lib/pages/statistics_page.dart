@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:daily_you/providers/entries_provider.dart';
+import 'package:daily_you/widgets/glass_action_button.dart';
 import 'package:daily_you/widgets/paper_texture.dart';
 import 'package:daily_you/widgets/word_cloud.dart';
 import 'package:daily_you/utils/keyword_cloud.dart';
+import 'package:daily_you/app_text.dart';
 
 class StatsPage extends StatefulWidget {
   const StatsPage({super.key});
@@ -70,14 +72,13 @@ class _StatsPageState extends State<StatsPage> {
           children: [
             const RicePaperBackground(),
 
-            // Top Bar
+            // Top Bar：统一玻璃返回按钮
             Positioned(
-              top: MediaQuery.of(context).padding.top + 8,
+              top: MediaQuery.of(context).padding.top + 12,
               left: 16,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_upward_rounded),
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
-                onPressed: () => Navigator.of(context).pop(),
+              child: GlassActionButton(
+                icon: Icons.arrow_upward_rounded,
+                onTap: () => Navigator.of(context).pop(),
               ),
             ),
 
@@ -89,7 +90,7 @@ class _StatsPageState extends State<StatsPage> {
               child: IgnorePointer(
                 child: Center(
                   child: Text(
-                    '上滑返回',
+                    AppText.backHint,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                     ),
@@ -106,7 +107,7 @@ class _StatsPageState extends State<StatsPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      '文辞',
+                      AppText.statsTitle,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineMedium?.copyWith(
                         color: theme.colorScheme.onSurface,
@@ -128,13 +129,17 @@ class _StatsPageState extends State<StatsPage> {
                       ),
                       child: Column(
                         children: [
-                          _buildStatRow(theme, "篇数", "$totalEntries", "篇"),
+                          _buildStatRow(
+                              theme, AppText.statEntries, "$totalEntries", AppText.unitEntries),
                           const SizedBox(height: 16),
-                          _buildStatRow(theme, "字数", "$totalWords", "字"),
+                          _buildStatRow(
+                              theme, AppText.statWords, "$totalWords", AppText.unitWords),
                           const SizedBox(height: 16),
-                          _buildStatRow(theme, "天数", "$entryDays", "天"),
+                          _buildStatRow(
+                              theme, AppText.statDays, "$entryDays", AppText.unitDays),
                           const SizedBox(height: 16),
-                          _buildStatRow(theme, "日均", "$avgWords", "字/天"),
+                          _buildStatRow(
+                              theme, AppText.statDaily, "$avgWords", AppText.unitDaily),
                         ],
                       ),
                     ).animate().fadeIn(

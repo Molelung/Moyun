@@ -1,13 +1,16 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:daily_you/models/entry.dart';
 import 'package:daily_you/providers/entries_provider.dart';
 import 'package:daily_you/providers/entry_images_provider.dart';
 import 'package:daily_you/time_manager.dart';
+import 'package:daily_you/widgets/glass_action_button.dart';
 import 'package:daily_you/widgets/paper_texture.dart';
+import 'package:daily_you/app_text.dart';
 import 'package:daily_you/pages/edit_entry_page.dart';
 
 class TimelineGroup {
@@ -149,29 +152,40 @@ class _TimelinePageState extends State<TimelinePage> {
 
             // Main List
             _groups.isEmpty
-                ? const Center(child: Text("暂无往昔"))
-                : ScrollablePositionedList.builder(
-                    itemCount: _groups.length,
-                    itemBuilder: (context, index) {
-                      final group = _groups[index];
-                      return _buildGroupItem(
-                          context, theme, group, entryImagesProvider, index);
+                ? const Center(child: Text(AppText.timelineEmpty))
+                : NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      // 已滑到最顶端时继续下拉 = 返回主界面（顺势下滑收起）
+                      if (notification is UserScrollNotification &&
+                          notification.direction == ScrollDirection.reverse &&
+                          notification.metrics.pixels <= 0) {
+                        Navigator.of(context).pop();
+                        return true;
+                      }
+                      return false;
                     },
-                    itemScrollController: itemScrollController,
-                    itemPositionsListener: itemPositionsListener,
-                    // 贴左缘，下方留出跳转胶囊的空间
-                    padding: const EdgeInsets.only(
-                        top: 80, bottom: 120, left: 4, right: 16),
+                    child: ScrollablePositionedList.builder(
+                      itemCount: _groups.length,
+                      itemBuilder: (context, index) {
+                        final group = _groups[index];
+                        return _buildGroupItem(
+                            context, theme, group, entryImagesProvider, index);
+                      },
+                      itemScrollController: itemScrollController,
+                      itemPositionsListener: itemPositionsListener,
+                      // 贴左缘，下方留出跳转胶囊的空间
+                      padding: const EdgeInsets.only(
+                          top: 80, bottom: 120, left: 4, right: 16),
+                    ),
                   ),
 
-            // Top Bar
+            // Top Bar：统一玻璃返回按钮
             Positioned(
-              top: MediaQuery.of(context).padding.top + 8,
+              top: MediaQuery.of(context).padding.top + 12,
               left: 16,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_downward_rounded),
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
-                onPressed: () => Navigator.of(context).pop(),
+              child: GlassActionButton(
+                icon: Icons.arrow_downward_rounded,
+                onTap: () => Navigator.of(context).pop(),
               ),
             ),
 
@@ -195,17 +209,17 @@ class _TimelinePageState extends State<TimelinePage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildJumpBtn("今天", () => _jumpToDate(DateTime.now())),
+                        _buildJumpBtn(AppText.jumpToday, () => _jumpToDate(DateTime.now())),
                         _buildJumpBtn(
-                            "一月",
+                            AppText.jumpMonth,
                             () => _jumpToDate(
                                 DateTime.now().subtract(const Duration(days: 30)))),
                         _buildJumpBtn(
-                            "三月",
+                            AppText.jumpThreeMonths,
                             () => _jumpToDate(
                                 DateTime.now().subtract(const Duration(days: 90)))),
                         _buildJumpBtn(
-                            "一年",
+                            AppText.jumpYear,
                             () => _jumpToDate(
                                 DateTime.now().subtract(const Duration(days: 365)))),
                         IconButton(

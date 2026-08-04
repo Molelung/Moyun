@@ -51,7 +51,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Expanded(
                   child: ListView(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                     children: [
                       _SettingsTile(
                         icon: Icons.palette_rounded,

@@ -1,5 +1,6 @@
 import 'package:daily_you/config_provider.dart';
 import 'package:daily_you/time_manager.dart';
+import 'package:daily_you/app_text.dart';
 import 'package:daily_you/widgets/color_picker_dialog.dart';
 import 'package:daily_you/widgets/settings_dropdown.dart';
 import 'package:daily_you/widgets/settings_icon_action.dart';
@@ -141,15 +142,17 @@ class _AppearanceSettingsPageState extends State<AppearanceSettings> {
           Padding(
             padding: const EdgeInsets.only(bottom: 8.0),
             child: SettingsDropdown<String>(
-                title: "正文字体",
+                title: AppText.fontSettingTitle,
                 value: configProvider.get(ConfigKey.cjkFont),
                 options: [
                   DropdownMenuItem<String>(
                       value: "sotyr",
-                      child: Text("仿宋", style: const TextStyle(fontFamily: 'SotyrFangsong'))),
+                      child: Text(AppText.fontSotyr,
+                          style: const TextStyle(fontFamily: 'SotyrFangsong'))),
                   DropdownMenuItem<String>(
                       value: "kaishu",
-                      child: Text("楷书", style: const TextStyle(fontFamily: 'XuandongKaishu'))),
+                      child: Text(AppText.fontKaishu,
+                          style: const TextStyle(fontFamily: 'XuandongKaishu'))),
                 ],
                 onChanged: (String? newValue) async {
                   await configProvider.set(ConfigKey.cjkFont, newValue);
