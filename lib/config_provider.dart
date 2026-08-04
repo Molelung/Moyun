@@ -1,0 +1,290 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:ui';
+import 'package:daily_you/language_option.dart';
+import 'package:easy_debounce/easy_debounce.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
+import 'package:logging/logging.dart';
+import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class ConfigKey {
+  static const String theme = "theme";
+  static const String useExternalDb = "useExternalDb";
+  static const String externalDbUri = "externalDbUri";
+  static const String useExternalImg = "useExternalImg";
+  static const String externalImgUri = "externalImgUri";
+  static const String startingDayOfWeek = "startingDayOfWeek";
+  static const String useMarkdownToolbar = "useMarkdownToolbar";
+  static const String cjkFont = "cjkFont";
+  static const String followSystemColor = "followSystemColor";
+  static const String accentColor = "accentColor";
+  static const String dailyReminders = "dailyReminders";
+  static const String setReminderTime = "setReminderTime";
+  static const String scheduledReminderHour = "scheduledReminderHour";
+  static const String scheduledReminderMinute = "scheduledReminderMinute";
+  static const String reminderStartHour = "reminderStartHour";
+  static const String reminderStartMinute = "reminderStartMinute";
+  static const String reminderEndHour = "reminderEndHour";
+  static const String reminderEndMinute = "reminderEndMinute";
+  static const String alwaysRemind = "alwaysRemind";
+  static const String onThisDayNotifications = "onThisDayNotifications";
+  static const String onThisDayNotificationHour = "onThisDayNotificationHour";
+  static const String onThisDayNotificationMinute =
+      "onThisDayNotificationMinute";
+  static const String imageQualityLevel = "imageQualityLevel";
+  static const String overrideLanguage = "overrideLanguage";
+  static const String calendarSystem = "calendarSystem";
+  // Secure Configuration Values
+  static const String requirePassword = "requirePassword";
+  static const String biometricUnlock = "biometricUnlock";
+  static const String passwordHash = "passwordHash";
+}
+
+class ImageQuality {
+  static const String noCompression = "noCompression";
+  static const String high = "high";
+  static const String medium = "medium";
+  static const String low = "low";
+}
+
+class ConfigProvider with ChangeNotifier {
+  static final ConfigProvider instance = ConfigProvider._init();
+
+  ConfigProvider._init();
+
+  final Logger _logger = Logger('ConfigProvider');
+
+  String configFilePath = '';
+
+  Map<String, dynamic> _config = {};
+  final Map<String, dynamic> _defaultConfig = {
+    ConfigKey.theme: 'system',
+    ConfigKey.useExternalDb: false,
+    ConfigKey.externalDbUri: '',
+    ConfigKey.useExternalImg: false,
+    ConfigKey.externalImgUri: '',
+    ConfigKey.startingDayOfWeek: 'system',
+    ConfigKey.useMarkdownToolbar: true,
+    ConfigKey.cjkFont: 'sotyr',
+    ConfigKey.followSystemColor: true,
+    ConfigKey.accentColor: 0xff62A0EA,
+    ConfigKey.dailyReminders: false,
+    ConfigKey.setReminderTime: false,
+    ConfigKey.scheduledReminderHour: 12,
+    ConfigKey.scheduledReminderMinute: 0,
+    ConfigKey.reminderStartHour: 9,
+    ConfigKey.reminderStartMinute: 0,
+    ConfigKey.reminderEndHour: 21,
+    ConfigKey.reminderEndMinute: 0,
+    ConfigKey.alwaysRemind: false,
+    ConfigKey.onThisDayNotifications: false,
+    ConfigKey.onThisDayNotificationHour: 12,
+    ConfigKey.onThisDayNotificationMinute: 0,
+    ConfigKey.imageQualityLevel: ImageQuality.medium,
+    ConfigKey.overrideLanguage: null,
+    ConfigKey.calendarSystem: 'system',
+  };
+
+  static const Map<String, dynamic> _secureConfig = {
+    ConfigKey.requirePassword: false,
+    ConfigKey.biometricUnlock: false,
+    ConfigKey.passwordHash: ""
+  };
+
+  bool _isSecureKey(String key) => _secureConfig.containsKey(key);
+
+  static const imageQualityCompressionMapping = {
+    ImageQuality.noCompression: 100,
+    ImageQuality.high: 90,
+    ImageQuality.medium: 80,
+    ImageQuality.low: 75,
+  };
+
+  static const imageQualityMaxSizeMapping = {
+    ImageQuality.noCompression: null,
+    ImageQuality.high: 2100.0,
+    ImageQuality.medium: 1600.0,
+    ImageQuality.low: 1024.0,
+  };
+
+  dynamic get(String field) {
+    return _config[field];
+  }
+
+  Future<void> set(String field, dynamic value) async {
+    _config[field] = value;
+    notifyListeners();
+
+    if (_isSecureKey(field)) {
+      final prefs = await SharedPreferences.getInstance();
+      // Store as JSON for type safety
+      await prefs.setString(field, json.encode(value));
+    } else {
+      await writeConfig();
+    }
+  }
+
+  Future<void> init() async {
+    final dbPath = await getApplicationSupportDirectory();
+    if (!dbPath.existsSync()) dbPath.createSync(recursive: true);
+    configFilePath = join(dbPath.path, 'config.json');
+
+    if (Platform.isAndroid) {
+      await _migrateConfigFromExternalStorage(dbPath);
+    }
+
+    await readConfig();
+    await loadSecureConfig();
+    await populateDefaults();
+
+    // Date formatting data is only loaded for the locales actually in use;
+    // initializing every locale on startup is measurably slow.
+    await _initializeDateFormattingForLocale();
+  }
+
+  Future<void> _initializeDateFormattingForLocale() async {
+    final deviceLocale = PlatformDispatcher.instance.locale;
+    final languages = <String>{deviceLocale.languageCode, 'en'};
+    final override = getOverrideLanguage();
+    if (override != null) languages.add(override.languageCode);
+
+    for (final language in languages) {
+      await initializeDateFormatting(language);
+    }
+    // Initialize the remaining locales in the background so switching
+    // languages later never fails.
+    unawaited(initializeDateFormatting());
+  }
+
+  Future<void> _migrateConfigFromExternalStorage(Directory newDir) async {
+    final newFile = File(join(newDir.path, 'config.json'));
+    if (newFile.existsSync()) return;
+
+    final oldDir = await getExternalStorageDirectory();
+    if (oldDir == null) return;
+    final oldFile = File(join(oldDir.path, 'config.json'));
+    if (!oldFile.existsSync()) return;
+
+    // Never let a migration failure abort startup; settings fall back to
+    // defaults via readConfig() if the config can't be moved.
+    try {
+      _logger.info('Config migration started: ${oldFile.path} -> ${newFile.path}');
+      await oldFile.copy(newFile.path);
+      if (newFile.existsSync() && newFile.lengthSync() > 0) {
+        await oldFile.delete();
+        _logger.info('Config migration finished successfully');
+      } else {
+        _logger.severe(
+            'Config migration failed: copied file missing or empty, kept original');
+      }
+    } catch (error, stackTrace) {
+      _logger.severe('Config migration failed', error, stackTrace);
+    }
+  }
+
+  Future<void> populateDefaults() async {
+    bool configChanged = false;
+
+    // Set default config data
+    for (String key in _defaultConfig.keys) {
+      if (!_config.containsKey(key)) {
+        _config[key] = _defaultConfig[key];
+        configChanged = true;
+      }
+    }
+
+    // Remove old keys
+    List<String> oldKeys = [];
+    for (String key in _config.keys) {
+      if (!_defaultConfig.containsKey(key) && !_secureConfig.containsKey(key)) {
+        oldKeys.add(key);
+      }
+    }
+    for (String key in oldKeys) {
+      _config.remove(key);
+      configChanged = true;
+    }
+
+    if (configChanged) {
+      await writeConfig();
+    }
+  }
+
+  Future<void> loadSecureConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    for (final key in _secureConfig.keys) {
+      if (prefs.containsKey(key)) {
+        try {
+          _config[key] = json.decode(prefs.getString(key)!);
+        } catch (_) {
+          _config[key] = prefs.getString(key); // fallback to raw
+        }
+      } else {
+        _config[key] = _secureConfig[key];
+        // Store as JSON for type safety
+        await prefs.setString(key, json.encode(_secureConfig[key]));
+      }
+    }
+  }
+
+  Future<void> readConfig() async {
+    final configFile = File(configFilePath);
+
+    if (!await configFile.exists()) {
+      _config = {};
+      return;
+    }
+
+    try {
+      final content = await configFile.readAsString();
+      final decoded = json.decode(content);
+
+      if (decoded is Map<String, dynamic>) {
+        _config = decoded;
+      } else {
+        throw const FormatException('Config is not a map');
+      }
+    } catch (e) {
+      // Corrupted config: reset to defaults
+      _config = {};
+    }
+  }
+
+  Future<void> writeConfig() async {
+    EasyDebounce.debounce("save-config", Duration(seconds: 1), () async {
+      // Don't write secure configurations to the config file
+      final filteredConfig = Map<String, dynamic>.from(_config)
+        ..removeWhere((key, _) => _isSecureKey(key));
+
+      final tempFile = File('$configFilePath.tmp');
+
+      final jsonString = json.encode(filteredConfig);
+
+      await tempFile.writeAsString(jsonString, flush: true);
+      await tempFile.rename(configFilePath);
+    });
+  }
+
+  bool is24HourFormat() {
+    if (PlatformDispatcher.instance.alwaysUse24HourFormat) return true;
+    String formattedTime =
+        DateFormat.jm(PlatformDispatcher.instance.locale.toString())
+            .format(DateTime.now());
+    // If the output contains text, it's a 12-hour format
+    return !formattedTime.contains(RegExp(r'[A-Za-z]'));
+  }
+
+  Locale? getOverrideLanguage() {
+    LanguageOption? currentOverride =
+        LanguageOption.fromJsonOrNull(get(ConfigKey.overrideLanguage));
+    if (currentOverride != null) {
+      return currentOverride.toLocale();
+    }
+    return null;
+  }
+}

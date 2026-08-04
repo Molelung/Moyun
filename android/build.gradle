@@ -1,0 +1,38 @@
+allprojects {
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = '../build'
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(':app')
+}
+
+// Keep Kotlin's JVM target aligned with each module's Java compilation
+// target, otherwise legacy dependencies (e.g. shared_storage) fail with an
+// "Inconsistent JVM-target compatibility" error when their Kotlin task is
+// compiled with the app's default JVM target (21).
+subprojects {
+    if (project.name == "app") return
+    project.plugins.withType(org.jetbrains.kotlin.gradle.plugin.KotlinBasePlugin) {
+        project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { kotlinTask ->
+            def javaTask = project.tasks.findByName(kotlinTask.name.replace("Kotlin", "JavaWithJavac"))
+            if (javaTask != null) {
+                kotlinTask.compilerOptions.jvmTarget.set(
+                    org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(javaTask.targetCompatibility.toString()))
+            }
+        }
+    }
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
