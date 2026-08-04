@@ -7,5 +7,6 @@ class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         flutterEngine.plugins.add(SafTransferPlugin())
+        ShareChannel().register(this, flutterEngine)
     }
 }
