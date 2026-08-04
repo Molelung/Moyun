@@ -37,11 +37,14 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
             centerTitle: true,
-            leading: Center(
-              child: GlassActionButton(
-                icon: Icons.arrow_back_ios_new_rounded,
-                iconSize: 20,
-                onTap: () => Navigator.of(context).pop(),
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Center(
+                child: GlassActionButton(
+                  icon: Icons.arrow_back_ios_new_rounded,
+                  iconSize: 20,
+                  onTap: () => Navigator.of(context).pop(),
+                ),
               ),
             ),
           ),

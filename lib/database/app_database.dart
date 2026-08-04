@@ -105,7 +105,7 @@ class AppDatabase {
 
   Future<void> open() async {
     _database = await openDatabase(_internalPath!,
-        version: 5, onCreate: _createDatabase, onUpgrade: _onUpgrade);
+        version: 6, onCreate: _createDatabase, onUpgrade: _onUpgrade);
 
     await EntriesProvider.instance.load();
     await EntryImagesProvider.instance.load();
@@ -256,15 +256,22 @@ class AppDatabase {
   Future<void> backupNow() async {
     if (!usingExternalLocation()) return;
     EasyDebounce.cancel("update-remote-database");
-    await _writeExternalBackup();
+    try {
+      await _writeExternalBackup();
+      _logger.info('Auto backup written to external location');
+    } catch (e, st) {
+      _logger.warning('Auto backup failed: $e\n$st');
+    }
   }
 
   Future<void> _writeExternalBackup() async {
+    final db = database;
+    if (db == null) return;
     try {
       // Create temporary export copy
       final tmpExport =
           "${_internalPath!}.export_${DateTime.now().millisecondsSinceEpoch}";
-      await database!.execute("VACUUM INTO '$tmpExport'");
+      await db.execute("VACUUM INTO '$tmpExport'");
 
       // Ensure export copy is valid
       if (!await _validateSqliteDatabase(tmpExport)) {
@@ -409,8 +416,22 @@ CREATE TABLE IF NOT EXISTS keyword_frequencies (
 ''');
   }
 
-  /// 升级/新建后一次性回填词频（仅执行一次）
+  /// 升级/新建后一次性回填词频（幂等：表已有数据且条目数足够时跳过）
   Future<void> _backfillKeywordFrequencies(Database db) async {
+    final freqCount =
+        Sqflite.firstIntValue(await db
+            .rawQuery('SELECT COUNT(*) FROM keyword_frequencies')) ??
+        0;
+    final entryCount =
+        Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM $entriesTable')) ??
+        0;
+
+    // v5 已建表并回填过的库（如升级到 v0.1.6 的正常用户）不能重复累加，
+    // 否则词频翻倍；只在表缺失/为空（旧库直升 v6）时重建。
+    if (freqCount > 0 && freqCount >= entryCount) return;
+
+    await db.delete('keyword_frequencies');
+
     final rows = await db.query(entriesTable, columns: [EntryFields.text]);
     if (rows.isEmpty) return;
     for (final row in rows) {
@@ -526,6 +547,13 @@ DROP TABLE old_entries;
     }
 
     if (oldVersion < 5) {
+      await _createKeywordFrequencyTable(db);
+      await _backfillKeywordFrequencies(db);
+    }
+
+    // v6：v0.1.3 已把库迁到 v5，v0.1.6 的建表代码因此从未执行过，
+    // 老库缺少 keyword_frequencies 导致统计页/写日记抛错。无条件补建。
+    if (oldVersion < 6) {
       await _createKeywordFrequencyTable(db);
       await _backfillKeywordFrequencies(db);
     }

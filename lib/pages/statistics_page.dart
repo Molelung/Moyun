@@ -28,14 +28,23 @@ class _StatsPageState extends State<StatsPage> {
 
   /// 统计信息在后台加载：全量聚合直查数据库，不受分页加载影响
   Future<Map<String, dynamic>> _loadStats() async {
-    final totalEntries = await EntryDao.getCount();
-    final entryDays = await EntryDao.getUniqueDaysCount();
-    final keywords = await EntryDao.getTopKeywords(totalEntries, limit: 40);
-    return {
-      'totalEntries': totalEntries,
-      'entryDays': entryDays,
-      'keywords': keywords,
-    };
+    try {
+      final totalEntries = await EntryDao.getCount();
+      final entryDays = await EntryDao.getUniqueDaysCount();
+      final keywords = await EntryDao.getTopKeywords(totalEntries, limit: 40);
+      return {
+        'totalEntries': totalEntries,
+        'entryDays': entryDays,
+        'keywords': keywords,
+      };
+    } catch (_) {
+      // 查询失败（如词频表缺失）时兜底展示空统计，绝不卡在加载态
+      return {
+        'totalEntries': 0,
+        'entryDays': 0,
+        'keywords': <String, int>{},
+      };
+    }
   }
 
   void _onVerticalDragUpdate(DragUpdateDetails details) {

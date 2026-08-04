@@ -33,12 +33,22 @@ class _TimelinePageState extends State<TimelinePage> {
 
   List<TimelineGroup> _groups = [];
 
+  /// 一次手势只能触发一次返回：过滚通知会在同一拖拽中多次触发，
+  /// 若不守卫会连续 pop 多个路由直到黑屏。
+  bool _popTriggered = false;
+
   @override
   void initState() {
     super.initState();
     _buildGroups();
 
     itemPositionsListener.itemPositions.addListener(_scrollListener);
+  }
+
+  void _triggerPop() {
+    if (_popTriggered || !mounted) return;
+    _popTriggered = true;
+    Navigator.of(context).pop();
   }
 
   void _scrollListener() {
@@ -168,12 +178,12 @@ class _TimelinePageState extends State<TimelinePage> {
                       if (notification is ScrollUpdateNotification) {
                         // 浏览到时间轴最末端（拉到底）后，继续下滑 = 返回主界面
                         if (notification.metrics.pixels >= notification.metrics.maxScrollExtent + 80) {
-                          Navigator.of(context).pop();
+                          _triggerPop();
                           return true;
                         }
                         // 滑到最顶端，继续下拉 = 返回主界面
                         if (notification.metrics.pixels <= -80) {
-                          Navigator.of(context).pop();
+                          _triggerPop();
                           return true;
                         }
                       }

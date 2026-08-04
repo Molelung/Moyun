@@ -88,6 +88,7 @@ class EntryDao {
     return await AppDatabase.instance.database!.query(
       entriesTable,
       columns: [EntryFields.id, EntryFields.timeCreate],
+      orderBy: '${EntryFields.timeCreate} DESC',
     );
   }
 

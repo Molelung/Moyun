@@ -88,36 +88,35 @@ class EntriesProvider with ChangeNotifier {
   }
 
   Future<void> jumpToDate(DateTime targetDate) async {
-    // 1. Check how many entries exist strictly BEFORE the targetDate
-    // Actually we want all entries newer than targetDate and up to targetDate.
-    // Easiest way: fetch all IDs and Dates to find the index.
+    // 内存列表按 timeCreate 倒序（最新在前）。目标条目在列表中的位置
+    // = 严格晚于 targetDate 的条目数量。旧实现用 indexWhere 找「第一个
+    // 早于目标的条目」，在 id 顺序 ≠ 时间顺序时算出错误索引，超过 50 篇
+    // 时目标页根本没被加载，导致跳转失效。
     final idsAndDates = await EntryDao.getIdsAndDates();
-    int targetIndex = idsAndDates.indexWhere((row) {
+    if (idsAndDates.isEmpty) return;
+
+    int newerCount = 0;
+    for (final row in idsAndDates) {
       final dateStr = row[EntryFields.timeCreate] as String;
       final date = DateTime.tryParse(dateStr);
-      if (date == null) return false;
-      // We want to find the first entry that is on or before the targetDate (descending order)
-      return date.isBefore(targetDate) || date.isAtSameMomentAs(targetDate);
-    });
-
-    if (targetIndex == -1) {
-      targetIndex = idsAndDates.length - 1; // Fallback to oldest
+      if (date != null && date.isAfter(targetDate)) newerCount++;
     }
-    
-    if (targetIndex < 0) return;
 
-    // To ensure the item is loaded, we must load at least (targetIndex + _limit) items
+    // 目标日期早于所有条目时落到最旧一篇
+    final targetIndex = newerCount.clamp(0, idsAndDates.length - 1);
+
+    // 为了能跳转到目标位置，必须把它所在页也加载进内存
     final itemsToLoad = targetIndex + _limit;
-    
+
     isLoading = true;
     notifyListeners();
 
-    _offset = itemsToLoad; // Next loadMore will start from here
+    _offset = itemsToLoad; // 后续 loadMore 从这里继续
     entries = await EntryDao.getPage(itemsToLoad, 0);
     isAllLoaded = entries.length < itemsToLoad;
-    
+
     _calculateEntriesByDay();
-    
+
     isLoading = false;
     notifyListeners();
   }

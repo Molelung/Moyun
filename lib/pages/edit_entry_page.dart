@@ -210,19 +210,22 @@ class _AddEditEntryPageState extends State<AddEditEntryPage>
                   appBar: AppBar(
                       backgroundColor: Colors.transparent,
                       surfaceTintColor: Colors.transparent,
-                      leading: Center(
-                        child: GlassActionButton(
-                          icon: Icons.arrow_back_ios_new_rounded,
-                          iconSize: 20,
-                          onTap: () {
-                            // Pop edit page
-                            Navigator.of(context).pop();
-                            if (!_creatingNewEntry &&
-                                Navigator.of(context).canPop()) {
-                              // Pop view page
+                      leading: Padding(
+                        padding: const EdgeInsets.only(left: 16),
+                        child: Center(
+                          child: GlassActionButton(
+                            icon: Icons.arrow_back_ios_new_rounded,
+                            iconSize: 20,
+                            onTap: () {
+                              // Pop edit page
                               Navigator.of(context).pop();
-                            }
-                          },
+                              if (!_creatingNewEntry &&
+                                  Navigator.of(context).canPop()) {
+                                // Pop view page
+                                Navigator.of(context).pop();
+                              }
+                            },
+                          ),
                         ),
                       ),
                       actions: [
