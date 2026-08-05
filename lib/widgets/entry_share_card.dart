@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:daily_you/models/entry.dart';
+import 'package:daily_you/widgets/entry_image_strip.dart';
 
 /// 中文小写数字：一、二、三…（用于日期）
 String _toChineseNumber(int num, {bool isYear = false}) {
@@ -91,25 +92,7 @@ class EntryShareCard extends StatelessWidget {
           ),
           if (imageBytes.isNotEmpty) ...[
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (final bytes in imageBytes.take(4))
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.memory(
-                        bytes,
-                        width: 90,
-                        height: 110,
-                        fit: BoxFit.cover,
-                        gaplessPlayback: true,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            EntryImageBytesGrid(images: imageBytes),
           ],
         ],
       ),

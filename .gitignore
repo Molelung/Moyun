@@ -61,3 +61,6 @@ appimage-build
 # direnv
 .direnv/
 android/app/.cxx/
+
+# Kotlin build sessions
+android/.kotlin/

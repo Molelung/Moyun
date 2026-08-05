@@ -7,7 +7,7 @@ import 'package:daily_you/models/entry.dart';
 import 'package:daily_you/models/image.dart';
 import 'package:daily_you/app_text.dart';
 import 'package:daily_you/providers/entry_images_provider.dart';
-import 'package:daily_you/widgets/local_image_loader.dart';
+import 'package:daily_you/widgets/entry_image_strip.dart';
 import 'package:daily_you/widgets/paper_texture.dart';
 import 'package:daily_you/widgets/glass_action_button.dart';
 
@@ -165,26 +165,7 @@ class _WanderPageState extends State<WanderPage> {
                 ),
                 if (images.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  SizedBox(
-                    height: 110,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        for (final image in images.take(4))
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: SizedBox(
-                                width: 90,
-                                height: 110,
-                                child: LocalImageLoader(imagePath: image.imgPath),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                  EntryImageStrip(images: images),
                 ],
               ],
             ),

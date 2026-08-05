@@ -39,7 +39,7 @@ Future<void> shareEntryAsImage(
   final targets = await _getShareTargets();
   if (!context.mounted) return;
 
-  await _showShareSheet(context, file.path, targets);
+  await _showShareSheet(context, file.path, targets, entry.text);
 }
 
 /// 渲染分享卡片为 PNG 临时文件（自研面板与保存相册共用）。
@@ -132,11 +132,12 @@ Future<bool> _saveToGallery(String path) async {
   }
 }
 
-/// 自研玻璃分享面板：保存到相册 + 已安装的常用应用
+/// 自研玻璃分享面板：复制文字 + 保存到相册 + 已安装的常用应用
 Future<void> _showShareSheet(
   BuildContext context,
   String path,
   List<Map<dynamic, dynamic>> targets,
+  String entryText,
 ) {
   return showModalBottomSheet(
     context: context,
@@ -181,6 +182,21 @@ Future<void> _showShareSheet(
                       crossAxisSpacing: 12,
                       childAspectRatio: 1.15,
                       children: [
+                        _ShareTargetTile(
+                          label: '复制文字',
+                          color: const Color(0xFF8A8177),
+                          icon: Icons.copy_rounded,
+                          onTap: () async {
+                            await Clipboard.setData(
+                                ClipboardData(text: entryText));
+                            if (sheetContext.mounted) {
+                              Navigator.of(sheetContext).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('日记内容已复制')),
+                              );
+                            }
+                          },
+                        ),
                         _ShareTargetTile(
                           label: '保存相册',
                           color: const Color(0xFF5A4D41),

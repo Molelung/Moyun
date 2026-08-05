@@ -4,7 +4,7 @@ import 'package:daily_you/widgets/edit_toolbar.dart';
 import 'package:flutter/material.dart';
 import 'package:daily_you/l10n/generated/app_localizations.dart';
 import 'package:flutter/services.dart';
-import 'package:word_count/word_count.dart';
+import 'package:daily_you/utils/text_count.dart';
 
 class FullScreenTextEditorPage extends StatefulWidget {
   final String initialText;
@@ -64,7 +64,7 @@ class _FullScreenTextEditorPageState extends State<FullScreenTextEditorPage> {
             listenable: _controller,
             builder: (_, __) => Text(
               AppLocalizations.of(context)!
-                  .wordCount(wordsCount(_controller.text)),
+                  .wordCount(textWordCount(_controller.text)),
               style: const TextStyle(fontSize: 14),
             ),
           ),

@@ -5,7 +5,7 @@ import 'package:daily_you/widgets/glass_action_button.dart';
 import 'package:daily_you/widgets/paper_texture.dart';
 import 'package:daily_you/widgets/word_cloud.dart';
 import 'package:daily_you/app_text.dart';
-import 'package:word_count/word_count.dart';
+import 'package:daily_you/utils/text_count.dart';
 
 class StatsPage extends StatefulWidget {
   const StatsPage({super.key});
@@ -31,11 +31,11 @@ class _StatsPageState extends State<StatsPage> {
       final totalEntries = await EntryDao.getCount();
       final entryDays = await EntryDao.getUniqueDaysCount();
       final keywords = await EntryDao.getTopKeywords(totalEntries, limit: 40);
-      // 字数保持与历史一致的 wordsCount 口径，只在统计页惰性计算
+      // 字数保持与历史一致的 wordsCount 口径（CJK 逐字 + 英文按词），只在统计页惰性计算
       var totalWords = 0;
       final texts = await EntryDao.getAllTexts();
       for (final text in texts) {
-        totalWords += wordsCount(text);
+        totalWords += textWordCount(text);
       }
       return {
         'totalEntries': totalEntries,

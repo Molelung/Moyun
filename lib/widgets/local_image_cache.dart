@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:ui' as ui;
 
 import 'package:daily_you/database/image_storage.dart';
 import 'package:daily_you/file_bytes_cache.dart';
@@ -95,6 +96,25 @@ class LocalImageCache {
     _pending.add(key);
     final request = ResizeRequest(key, originalPath, width);
     _resizeSendPort!.send(request);
+  }
+
+  /// 仅解码图片头部获取宽高比（不加载完整像素），用于单图原比例展示。
+  /// 返回 null 表示无法解析（如损坏文件）。
+  Future<double?> getImageAspectRatio(String originalPath) async {
+    try {
+      final bytes = await ImageStorage.instance.getBytes(originalPath);
+      if (bytes == null) return null;
+      final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+      final descriptor = await ui.ImageDescriptor.encoded(buffer);
+      final w = descriptor.width;
+      final h = descriptor.height;
+      descriptor.dispose();
+      buffer.dispose();
+      if (w <= 0 || h <= 0) return null;
+      return w / h;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<Uint8List?> getResizedImageBytes(

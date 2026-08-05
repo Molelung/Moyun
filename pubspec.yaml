@@ -1,7 +1,7 @@
 ﻿name: daily_you
 description: Every day is worth remembering...
 publish_to: 'none'
-version: 0.2.2+1012
+version: 0.2.3+1013
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -50,7 +50,6 @@ dependencies:
   media_scanner: ^2.2.0
   local_auth: ^3.0.1
   crypto: ^3.0.6
-  word_count: ^1.0.4
   xml: ^6.6.1
   csv: ^8.0.0
   quick_actions: ^1.1.0
@@ -64,6 +63,8 @@ dependencies:
   encrypt: ^5.0.3
   flutter_spinkit: ^5.2.2
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   flutter_lints: ^6.0.0
 
 flutter:

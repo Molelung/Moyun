@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:word_count/word_count.dart';
+import 'package:daily_you/utils/text_count.dart';
 import 'package:daily_you/database/image_storage.dart';
 import 'package:daily_you/models/image.dart';
 import 'package:daily_you/providers/entries_provider.dart';
@@ -435,7 +435,7 @@ class _AddEditEntryPageState extends State<AddEditEntryPage>
                         valueListenable: _textEditingController,
                         builder: (context, value, _) {
                           return Text(
-                            '${wordsCount(value.text)} 字',
+                            '${textWordCount(value.text)} 字',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurface
                                   .withValues(alpha: 0.45),

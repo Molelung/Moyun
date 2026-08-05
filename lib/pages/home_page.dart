@@ -14,7 +14,7 @@ import 'package:daily_you/database/app_database.dart';
 import 'package:daily_you/database/entry_dao.dart';
 import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:daily_you/widgets/local_image_loader.dart';
+import 'package:daily_you/widgets/entry_image_strip.dart';
 import 'package:daily_you/widgets/paper_texture.dart';
 import 'package:daily_you/pages/edit_entry_page.dart';
 import 'package:daily_you/pages/settings_page.dart';
@@ -56,12 +56,10 @@ String _toFinancialNumber(int num) {
 }
 
 class _HomePageState extends State<HomePage> {
-  // 布局常量：卡片高度占屏比、缩略图尺寸、单卡最多图片数
+  // 布局常量：卡片高度占屏比、单卡最多图片数
   static const double _cardHeightFactor = 0.62;
   static const double _cardMinHeight = 400;
   static const double _cardMaxHeight = 600;
-  static const double _thumbSize = 110;
-  static const double _thumbWidth = 90;
   static const int _maxCardImages = 4;
   static const int _infiniteInitialPage = 10000;
   static const double _pageViewportFraction = 0.88;
@@ -359,30 +357,10 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 ),
-                // 图片放在文字下面
+                // 图片放在文字下面：自适应摆放
                 if (images.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  SizedBox(
-                    height: _thumbSize,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        for (final image in images.take(_maxCardImages))
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: SizedBox(
-                                width: _thumbWidth,
-                                height: _thumbSize,
-                                child: LocalImageLoader(
-                                    imagePath: image.imgPath),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                  EntryImageStrip(images: images, maxImages: _maxCardImages),
                 ],
                 const SizedBox(height: 12),
                 if (number > 0)
