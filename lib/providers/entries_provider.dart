@@ -1,7 +1,5 @@
-import 'package:daily_you/database/app_database.dart';
 import 'package:daily_you/database/entry_dao.dart';
 import 'package:daily_you/models/entry.dart';
-import 'package:daily_you/providers/entry_images_provider.dart';
 import 'package:flutter/foundation.dart';
 
 class EntriesProvider with ChangeNotifier {
@@ -131,26 +129,6 @@ class EntriesProvider with ChangeNotifier {
       _calculateEntriesByDay();
       notifyListeners();
     }
-  }
-
-  /// Deletes every entry (and its images), then reloads the provider.
-  Future<void> deleteAll(void Function(String) updateStatus) async {
-    updateStatus("0%");
-    var processedEntries = 0;
-    for (Entry entry in entries) {
-      for (final image in EntryImagesProvider.instance.getForEntry(entry)) {
-        await EntryImagesProvider.instance.remove(image);
-      }
-      processedEntries += 1;
-      // The provider's remove function is not used to avoid editing the
-      // entries list while iterating over it.
-      await EntryDao.remove(entry.id!);
-      updateStatus("${((processedEntries / entries.length) * 100).round()}%");
-    }
-
-    // Reload the provider since all entries have been deleted
-    await load();
-    await AppDatabase.instance.updateExternalDatabase();
   }
 
   /// Compares two [DateTime]s by calendar date and time of day.

@@ -1,7 +1,7 @@
-﻿name: daily_you
+name: daily_you
 description: Every day is worth remembering...
 publish_to: 'none'
-version: 0.2.4+1014
+version: 0.2.5+1015
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -46,22 +46,20 @@ dependencies:
   flutter_cache_manager: ^3.4.1
   pool: ^1.5.1
   flutter_image_compress: ^2.4.0
-  html2md: ^1.3.2
   media_scanner: ^2.2.0
   local_auth: ^3.0.1
   crypto: ^3.0.6
   xml: ^6.6.1
-  csv: ^8.0.0
   quick_actions: ^1.1.0
   flutter_displaymode: ^0.7.0
   dynamic_color: ^1.8.1
   uuid: ^4.5.3
-  shamsi_date: ^1.1.1
   persian_datetime_picker: ^3.2.0
   scrollable_positioned_list: ^0.3.8
   flutter_animate: ^4.5.2
   encrypt: ^5.0.3
   flutter_spinkit: ^5.2.2
+  pdf: ^3.12.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -72,6 +70,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/daily_you_First_Steps.webp
+    - assets/fonts/SotyrFangsong-Subset.ttf
   fonts:
     - family: Courgette
       fonts:

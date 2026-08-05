@@ -193,10 +193,10 @@ class FileLayer {
 
   static Future<bool> copyToExternalLocation(
       String localFile, String externalFolder, String outputFile,
-      {Function(double percent)? onProgress}) async {
+      {Function(double percent)? onProgress, String mimeType = "application/zip"}) async {
     if (Platform.isAndroid) {
       return await SafTransfer.copyToExternalLocation(
-          localFile, externalFolder, outputFile, "application/zip",
+          localFile, externalFolder, outputFile, mimeType,
           onProgress: onProgress);
     }
     return _copyStream(

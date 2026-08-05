@@ -42,4 +42,8 @@ class AppText {
   static const String backupEncryption = '备份加密';
   static const String setBackupPassword = '设置备份密码';
   static const String changeBackupPassword = '修改备份密码';
+
+  // 全量导出
+  static const String exportWord = 'Word 文档（.docx）';
+  static const String exportPdf = 'PDF 文档（.pdf）';
 }
