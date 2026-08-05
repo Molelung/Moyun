@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:daily_you/models/image.dart';
 import 'package:flutter/material.dart';
 import 'package:daily_you/l10n/generated/app_localizations.dart';
+import 'package:daily_you/pages/full_screen_image_viewer_page.dart';
 
 import 'local_image_loader.dart';
 
@@ -93,55 +94,69 @@ class _EntryImageEditableListState extends State<EntryImageEditableList> {
     }
   }
 
+  void _openViewer(int index) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => FullScreenImageViewerPage(
+        images: _images,
+        initialIndex: index,
+      ),
+    ));
+  }
+
   Card editableWidget(int index, {bool showDragHandle = true}) {
     return Card.filled(
       clipBehavior: Clip.antiAlias,
-      child:
-          Stack(alignment: Alignment.center, fit: StackFit.expand, children: [
-        LocalImageLoader(imagePath: _images[index].imgPath),
-        Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.max,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                IconButton(
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    onPressed: () => _showDeleteImagePopup(index),
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                            color: Colors.black.withValues(alpha: 0.8),
-                            blurRadius: 6,
-                            offset: Offset(0, 0)),
-                      ],
-                    ))
-              ],
-            ),
-            if (showDragHandle)
-              Row(
-                mainAxisSize: MainAxisSize.max,
-                mainAxisAlignment: MainAxisAlignment.center,
+      child: GestureDetector(
+        onTap: () => _openViewer(index),
+        child: Stack(
+            alignment: Alignment.center,
+            fit: StackFit.expand,
+            children: [
+              LocalImageLoader(imagePath: _images[index].imgPath),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(
-                    Icons.drag_handle_rounded,
-                    color: Colors.white,
-                    shadows: [
-                      Shadow(
-                          color: Colors.black.withValues(alpha: 0.8),
-                          blurRadius: 6,
-                          offset: Offset(0, 0)),
+                  Row(
+                    mainAxisSize: MainAxisSize.max,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          onPressed: () => _showDeleteImagePopup(index),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                            shadows: [
+                              Shadow(
+                                  color: Colors.black.withValues(alpha: 0.8),
+                                  blurRadius: 6,
+                                  offset: Offset(0, 0)),
+                            ],
+                          ))
                     ],
                   ),
+                  if (showDragHandle)
+                    Row(
+                      mainAxisSize: MainAxisSize.max,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.drag_handle_rounded,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                                color: Colors.black.withValues(alpha: 0.8),
+                                blurRadius: 6,
+                                offset: Offset(0, 0)),
+                          ],
+                        ),
+                      ],
+                    )
                 ],
               )
-          ],
-        )
-      ]),
+            ]),
+      ),
     );
   }
 
