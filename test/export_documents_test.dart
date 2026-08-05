@@ -42,6 +42,13 @@ void main() {
     expect(names, contains('word/_rels/document.xml.rels'));
     expect(names, contains('word/media/image1.jpg'));
 
+    // 关键校验：ZIP 头声明的 uncompressedSize 必须与真实字节数一致，
+    // 否则含中文的 docx 会被 Word 判定为损坏而无法打开。
+    for (final f in archive.files) {
+      expect(f.size, f.content.length,
+          reason: 'entry ${f.name} size mismatch');
+    }
+
     final docXml = utf8.decode(
         archive.files.firstWhere((f) => f.name == 'word/document.xml').content);
     expect(docXml, contains('今日有风'));

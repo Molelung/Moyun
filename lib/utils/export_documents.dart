@@ -145,7 +145,7 @@ Future<Uint8List> buildWordDocument(
       'w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>'
       '</w:body></w:document>');
 
-  final documentXml =
+  final contentTypeXml =
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
       '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
@@ -171,14 +171,17 @@ Future<Uint8List> buildWordDocument(
       '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
       '${rels.toString()}</Relationships>';
 
-  archive.addFile(ArchiveFile('[Content_Types].xml', documentXml.length,
-      utf8.encode(documentXml)));
-  archive.addFile(ArchiveFile('_rels/.rels', rootRels.length,
-      utf8.encode(rootRels)));
-  archive.addFile(ArchiveFile('word/document.xml', body.length,
-      utf8.encode(body.toString())));
-  archive.addFile(ArchiveFile('word/_rels/document.xml.rels', docRels.length,
-      utf8.encode(docRels)));
+  // 统一按 UTF-8 字节写入，保证 ZIP 头里的 uncompressedSize 与实际字节数一致
+  // （否则含中文的 entry 会因尺寸不符被 Word 判定为损坏）。
+  void addXmlFile(String name, String xml) {
+    final bytes = Uint8List.fromList(utf8.encode(xml));
+    archive.addFile(ArchiveFile(name, bytes.length, bytes));
+  }
+
+  addXmlFile('[Content_Types].xml', contentTypeXml);
+  addXmlFile('_rels/.rels', rootRels);
+  addXmlFile('word/document.xml', body.toString());
+  addXmlFile('word/_rels/document.xml.rels', docRels);
 
   return Uint8List.fromList(ZipEncoder().encode(archive));
 }
